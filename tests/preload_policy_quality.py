@@ -96,9 +96,10 @@ def main() -> int:
     check(
         checks,
         "PRELOAD-STATIC-006",
-        "measuredShortcutsWidth % 2" in options_dialog
-        and "const int shortcutsNaturalWidth" in options_dialog,
-        "the shortcut page normalizes its natural width to avoid odd-pixel Stretch splits",
+        "SettingsWidth = 512" in options_dialog
+        and "QVariantList{ pageWidth, pageWidth, pageWidth }" in options_dialog
+        and "horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch)" in options_dialog,
+        "the settings pages share a fixed width and the shortcut columns stretch into it",
     )
     check(
         checks,

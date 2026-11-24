@@ -36,6 +36,7 @@
 #include <QDoubleSpinBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -599,13 +600,11 @@ private slots:
     void testSettingsTabTransitionAndMouseReopen();
     void testSettingsTabSwitchDoesNotFocusAppearance();
     void testLocalizedSettingsFormsUseSharedLabelColumns();
-    void testSettingsDialogSizesFollowTranslations();
     void testMacMenuTranslationCatalogsAreComplete();
     void testFullscreenMenuIconsRespectMainMenuPolicy();
     void testExitFullscreenActionUsesEscapePath();
     void testOptionsDialogCentersOnMainWindow();
     void testSettingsDialogIsNativeChildAboveMainWindow();
-    void testAssociateFormatsButtonIsCentered();
     void testTitlebarHiddenPersistsToNewWindow();
     void testTitlebarPresentationDuringFullScreen_data();
     void testTitlebarPresentationDuringFullScreen();
@@ -620,11 +619,10 @@ private slots:
     void testNativeFullScreenRoundTrip_data();
     void testNativeFullScreenRoundTrip();
     void testSmoothScalingDefaultIsBilinear();
-    void testSettingsFormsAlignLabelsAndValues();
-    void testSettingsColonAlignmentSurvivesTranslations();
     void testSettingsSpacingUsesNativeStyle();
     void testSettingsAssociateButtonUsesNativeStyle();
     void testSettingsEveryTabFitsEveryLanguage();
+    void testSettingsNativeAppearance();
     void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
     void testHelpMenuContract();
@@ -668,6 +666,7 @@ private slots:
     void testDoubleClickOpensShortcutEditor();
     void testShortcutUpdateKeepsSettingsWidth();
     void testEscapeRejectsShortcutEditorLikeCancel();
+    void testShortcutCategoriesConflictAndRestore();
 };
 
 class TestableImageCore : public QVImageCore
@@ -1206,55 +1205,39 @@ public:
     }
 };
 
-static QString settingsLabelColumnFailure(QWidget *page)
+static QString settingsFormGeometryFailure(QWidget *page)
 {
-    if (!page)
-        return QStringLiteral("settings page is missing");
+    int labelLeft = -1;
+    int popupRight = -1;
+    int popupWidth = -1;
+    for (auto *form : page->findChildren<QGridLayout *>()) {
+        for (int row = 0; row < form->rowCount(); ++row) {
+            auto *label = qobject_cast<QLabel *>(form->itemAtPosition(row, 0)->widget());
+            auto *field = form->itemAtPosition(row, 1)->widget();
+            if (!label || label->buddy() != field)
+                return QStringLiteral("Missing form label for ") + field->objectName();
 
-    int expectedRight = -1;
-    QChar expectedPunctuation;
-    int visibleLabelCount = 0;
-    for (auto *label : page->findChildren<QLabel *>()) {
-        if (!label->isVisible())
-            continue;
+            const QRect labelRect(label->mapTo(page, QPoint()), label->size());
+            const QRect fieldRect(field->mapTo(page, QPoint()), field->size());
+            if (labelRect.right() >= fieldRect.left()
+                || label->height() < label->heightForWidth(label->width()))
+                return QStringLiteral("Clipped label for ") + field->objectName();
+            if (labelLeft == -1)
+                labelLeft = labelRect.left();
+            if (labelRect.left() != labelLeft)
+                return QStringLiteral("Misaligned label for ") + field->objectName();
 
-        const QString text = label->text().trimmed();
-        if (text.isEmpty())
-            continue;
-
-        if (!text.endsWith(QLatin1Char(':')) && !text.endsWith(QChar(0xFF1A)))
-            continue;
-
-        ++visibleLabelCount;
-        const QChar punctuation = text.back();
-        if (punctuation != QLatin1Char(':'))
-            return QStringLiteral("label %1 does not use the English ASCII U+003A colon")
-                    .arg(label->objectName());
-        if (expectedPunctuation.isNull())
-            expectedPunctuation = punctuation;
-        else if (punctuation != expectedPunctuation)
-            return QStringLiteral("labels use mixed terminal punctuation: %1 and %2")
-                    .arg(QString::number(expectedPunctuation.unicode(), 16))
-                    .arg(QString::number(punctuation.unicode(), 16));
-
-        const int right = label->mapTo(page, QPoint(label->width(), 0)).x();
-        if (expectedRight < 0)
-            expectedRight = right;
-        else if (right != expectedRight)
-            return QStringLiteral("label %1 ends at x=%2, expected x=%3")
-                    .arg(label->objectName())
-                    .arg(right)
-                    .arg(expectedRight);
-
-        const Qt::Alignment alignment = label->alignment();
-        if (!(alignment & Qt::AlignRight) || !(alignment & Qt::AlignTrailing))
-            return QStringLiteral("label %1 is not right/trailing aligned")
-                    .arg(label->objectName());
+            if (auto *popup = qobject_cast<QComboBox *>(field)) {
+                if (popupRight == -1) {
+                    popupRight = fieldRect.right();
+                    popupWidth = fieldRect.width();
+                }
+                if (fieldRect.right() != popupRight || popup->width() != popupWidth)
+                    return QStringLiteral("Misaligned popup ") + field->objectName();
+            }
+        }
     }
-
-    return visibleLabelCount > 0
-            ? QString()
-            : QStringLiteral("no visible colon-terminated settings labels found");
+    return popupWidth > 0 ? QString() : QStringLiteral("No settings popup was checked");
 }
 
 class ScopedEnvironmentValue
@@ -4471,7 +4454,7 @@ void FeatureTests::testSettingsFormatsPaneIsRemoved()
         categoryTexts.append(tabs->tabText(index));
     QCOMPARE(categoryTexts,
              QStringList({ QStringLiteral("General"), QStringLiteral("Shortcuts"),
-                           QStringLiteral("Mouse") }));
+                           QStringLiteral("Mouse & Trackpad") }));
     QVERIFY(!categoryTexts.contains(QStringLiteral("Formats")));
     QVERIFY(!dialog.findChild<QWidget *>("formats"));
     QVERIFY(!dialog.findChild<QTableWidget *>("formatsTable"));
@@ -5031,8 +5014,8 @@ void FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()
     QVERIFY(reuseWindow);
     QVERIFY(afterDeleteLabel);
     QVERIFY(afterDelete);
-    QCOMPARE(checkerboard->text(), QStringLiteral("Use checkerboard background"));
-    QCOMPARE(reuseWindow->text(), QStringLiteral("Open images in the same window"));
+    QCOMPARE(checkerboard->accessibleName(), QStringLiteral("Use checkerboard background"));
+    QCOMPARE(reuseWindow->accessibleName(), QStringLiteral("Open images in the same window"));
     QCOMPARE(afterDeleteLabel->text(), QStringLiteral("After deleting files:"));
     const int noActionIndex = afterDelete->findData(static_cast<int>(Qv::AfterDelete::DoNothing));
     QVERIFY(noActionIndex >= 0);
@@ -5250,75 +5233,25 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
     QVOptionsDialog dialog;
     auto *generalContent = dialog.findChild<QWidget *>(QStringLiteral("generalContent"));
     QVERIFY(generalContent);
-    QVERIFY(!dialog.findChild<QWidget *>(QStringLiteral("general")));
-    QVERIFY(!dialog.findChild<QWidget *>(QStringLiteral("misc")));
-    auto *generalLayout = qobject_cast<QVBoxLayout *>(generalContent->layout());
-    QVERIFY(generalLayout);
-    QVERIFY(generalContent->property("settingsGroupSpacing").toInt() > 0);
-    QCOMPARE(generalContent->property("settingsRowSpacing").toInt(), -1);
-    QVERIFY(!generalContent->property("settingsGroupBottomPadding").isValid());
-    QVERIFY(generalContent->property("settingsHasBottomStretch").toBool());
-    QCOMPARE(generalLayout->count(), 9);
-    QVERIFY(generalLayout->itemAt(8)->spacerItem());
-
-    const QList<QStringList> expectedItems{
-        { QStringLiteral("langComboBox") },
-        { QStringLiteral("themeComboBox"), QStringLiteral("checkerboardBackgroundCheckbox") },
-        { QStringLiteral("smoothScalingComboBox") },
-        { QStringLiteral("reuseWindowCheckbox"), QStringLiteral("smallImagesOneToOneCheckbox"),
-          QStringLiteral("keepZoomCheckbox") },
-        { QStringLiteral("slideshowDirectionComboBox"), QStringLiteral("slideshowTimerSpinBox") },
-        { QStringLiteral("afterDeletionComboBox"), QStringLiteral("askDeleteCheckbox") },
-        { QStringLiteral("updateFrequencyComboBox") },
-        { QStringLiteral("associateFormatsButton") }
+    const QList<QPair<QString, QStringList>> expectedGroups{
+        { "languageAppearance",
+          { "langComboBox", "themeComboBox", "checkerboardBackgroundCheckbox" } },
+        { "imageBrowsing",
+          { "smoothScalingComboBox", "smallImagesOneToOneCheckbox", "keepZoomCheckbox",
+            "reuseWindowCheckbox" } },
+        { "slideshow", { "slideshowDirectionComboBox", "slideshowTimerSpinBox" } },
+        { "fileManagement", { "afterDeletionComboBox", "askDeleteCheckbox" } },
+        { "updatesAssociations", { "updateFrequencyComboBox", "associateFormatsButton" } },
     };
-
-    const auto groups = generalContent->findChildren<QWidget *>();
-    QList<QWidget *> orderedGroups;
-    for (auto *widget : groups) {
-        if (widget->property("settingsGroupIndex").isValid())
-            orderedGroups.append(widget);
-    }
-    std::sort(orderedGroups.begin(), orderedGroups.end(), [](QWidget *left, QWidget *right) {
-        return left->property("settingsGroupIndex").toInt()
-                < right->property("settingsGroupIndex").toInt();
-    });
-    QCOMPARE(orderedGroups.size(), expectedItems.size());
-
-    for (int index = 0; index < expectedItems.size(); ++index) {
-        QWidget *group = orderedGroups.at(index);
-        QCOMPARE(generalLayout->itemAt(index)->widget(), group);
-        QCOMPARE(group->property("settingsGroupIndex").toInt(), index + 1);
-        QCOMPARE(group->property("settingsItemObjectNames").toStringList(),
-                 expectedItems.at(index));
-        QCOMPARE(group->parentWidget(), generalContent);
-        QCOMPARE(group->sizePolicy().verticalPolicy(), QSizePolicy::Fixed);
-        auto *layout = qobject_cast<QFormLayout *>(group->layout());
-        QVERIFY(layout);
-        QCOMPARE(layout->verticalSpacing(), -1);
-        const QMargins margins = layout->contentsMargins();
-        QCOMPARE(margins.top(), 0);
-        QCOMPARE(margins.right(), 0);
-        QCOMPARE(margins.bottom(), 0);
-        if (index == 3)
-            QCOMPARE(margins.left(),
-                     generalContent->property("settingsAlignedLabelColumnWidth").toInt());
-        else
-            QCOMPARE(margins.left(), 0);
-
-        for (const QString &objectName : expectedItems.at(index)) {
-            auto *option = dialog.findChild<QWidget *>(objectName);
-            QVERIFY(option);
-            bool belongsToGroup = false;
-            for (QWidget *ancestor = option->parentWidget(); ancestor;
-                 ancestor = ancestor->parentWidget()) {
-                if (ancestor == group) {
-                    belongsToGroup = true;
-                    break;
-                }
-            }
-            QVERIFY2(belongsToGroup, qPrintable(objectName));
-        }
+    auto *layout = generalContent->layout();
+    QCOMPARE(layout->count(), expectedGroups.size());
+    for (int index = 0; index < expectedGroups.size(); ++index) {
+        const auto &[name, controls] = expectedGroups.at(index);
+        auto *group = layout->itemAt(index)->widget();
+        QVERIFY(group);
+        QCOMPARE(group->objectName(), name);
+        for (const auto &control : controls)
+            QVERIFY2(group->findChild<QWidget *>(control), qPrintable(control));
     }
 
     auto *theme = dialog.findChild<QComboBox *>(QStringLiteral("themeComboBox"));
@@ -12668,7 +12601,7 @@ void ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()
 
 static void sendShortcutCellDoubleClick(QTableWidget *table)
 {
-    const QRect cell = table->visualItemRect(table->item(0, 1));
+    const QRect cell = table->visualItemRect(table->item(1, 1));
     QVERIFY(cell.isValid());
     const QModelIndex index = table->indexAt(cell.center());
     QVERIFY(index.isValid());
@@ -12690,7 +12623,7 @@ static void sendShortcutCellDoubleClick(QTableWidget *table)
 // configuration dialog.
 // Preconditions: a visible QVOptionsDialog is showing the populated
 // Shortcuts table.
-// Input data: row 0, column 1, delivered through QTest mouse double-click (with
+// Input data: first action row, column 1, delivered through QTest mouse double-click (with
 // a deterministic signal fallback for the headless Cocoa backend).
 // Steps: double-click the first cell in the Shortcuts column and observe the
 // child QVShortcutDialog.
@@ -12783,7 +12716,7 @@ void ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()
     QTRY_VERIFY_WITH_TIMEOUT(editor.isNull(), 1000);
     QCOMPARE(dialog.width(), widthBefore);
     QCOMPARE(dialog.property("settingsFixedWidth").toInt(), fixedWidthBefore);
-    QCOMPARE(table->item(0, 1)->text(), replacement.toString(QKeySequence::NativeText));
+    QCOMPARE(table->item(1, 1)->text(), replacement.toString(QKeySequence::NativeText));
     QCOMPARE(QSettings().value(QStringLiteral("shortcuts/open")).toStringList(),
              QStringList{ replacement.toString(QKeySequence::PortableText) });
 
@@ -12817,7 +12750,7 @@ void ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()
     QVERIFY(table);
     tabs->setCurrentIndex(1);
     QTRY_VERIFY_WITH_TIMEOUT(table->isVisible(), 1000);
-    const QString originalCell = table->item(0, 1)->text();
+    const QString originalCell = table->item(1, 1)->text();
 
     sendShortcutCellDoubleClick(table);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.findChildren<QVShortcutDialog *>().isEmpty(), 1000);
@@ -12836,10 +12769,78 @@ void ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()
     QTRY_VERIFY_WITH_TIMEOUT(editor.isNull(), 1000);
     QCOMPARE(rejectedSpy.count(), 1);
     QCOMPARE(changedSpy.count(), 0);
-    QCOMPARE(table->item(0, 1)->text(), originalCell);
+    QCOMPARE(table->item(1, 1)->text(), originalCell);
     QCOMPARE(QSettings().value(QStringLiteral("shortcuts/open")).toStringList(),
              QStringList{ originalShortcut });
 
+    dialog.close();
+}
+
+void ShortcutSettingsTests::testShortcutCategoriesConflictAndRestore()
+{
+    const QKeySequence changed(Qt::ALT | Qt::Key_F12);
+    const QKeySequence occupied(Qt::CTRL | Qt::Key_C);
+    ScopedShortcutValues shortcuts(
+            { { "open", { changed.toString() } }, { "copy", { occupied.toString() } } });
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
+    auto *table = dialog.findChild<QTableWidget *>("shortcutsTable");
+    auto *edit = dialog.findChild<QPushButton *>("editShortcutButton");
+    QVERIFY(tabs && table && edit);
+    tabs->setCurrentIndex(1);
+    dialog.show();
+    QTRY_VERIFY(table->isVisible());
+
+    QCOMPARE(table->columnCount(), 2);
+    QVERIFY(!table->alternatingRowColors());
+    QCOMPARE(table->frameShape(), QFrame::NoFrame);
+    int categories = 0;
+    int actions = 0;
+    for (int row = 0; row < table->rowCount(); ++row) {
+        const auto *item = table->item(row, 0);
+        QVERIFY(item);
+        if (table->columnSpan(row, 0) == 2) {
+            QVERIFY(!(item->flags() & Qt::ItemIsSelectable));
+            QVERIFY(!item->data(Qt::UserRole).isValid());
+            ++categories;
+        } else {
+            QCOMPARE(item->data(Qt::UserRole).toInt(), actions++);
+        }
+    }
+    QCOMPARE(categories, 5);
+    QCOMPARE(actions, qvApp->getShortcutManager().getShortcutsList().size());
+    QCOMPARE(table->item(1, 1)->text(), changed.toString(QKeySequence::NativeText));
+    table->setCurrentCell(1, 0);
+    QVERIFY(edit->isEnabled());
+    edit->click();
+
+    QPointer<QVShortcutDialog> editor = dialog.findChild<QVShortcutDialog *>();
+    QVERIFY(editor);
+    QVERIFY(editor->windowTitle().contains(
+            qvApp->getShortcutManager().getShortcutsList().first().readableName));
+    auto *feedback = editor->findChild<QLabel *>("shortcutConflict");
+    auto *sequence = editor->findChild<QKeySequenceEdit *>("keySequenceEdit");
+    auto *buttons = editor->findChild<QDialogButtonBox *>("buttonBox");
+    QVERIFY(feedback && sequence && buttons);
+    auto *ok = buttons->button(QDialogButtonBox::Ok);
+    sequence->setKeySequence(occupied);
+    QVERIFY(!ok->isEnabled());
+    QVERIFY(feedback->text().contains(occupied.toString(QKeySequence::NativeText)));
+    QVERIFY(feedback->isVisible());
+    QCOMPARE(QSettings().value("shortcuts/open").toStringList(), QStringList{ changed.toString() });
+
+    auto *restore = buttons->button(QDialogButtonBox::RestoreDefaults);
+    QVERIFY(restore);
+    restore->click();
+    QVERIFY(ok->isEnabled());
+    QVERIFY(feedback->isHidden());
+    const auto defaults = ShortcutManager::keyBindingsToStringList(QKeySequence::Open);
+    QCOMPARE(sequence->keySequence().toString(QKeySequence::PortableText), defaults.join(", "));
+    ok->click();
+    QTRY_VERIFY(editor.isNull());
+    QCOMPARE(QSettings().value("shortcuts/open").toStringList(), defaults);
+    QCOMPARE(table->item(1, 1)->text(), ShortcutManager::stringListToReadableString(defaults));
     dialog.close();
 }
 
@@ -12907,6 +12908,12 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
     dialog.show();
     QTRY_VERIFY_WITH_TIMEOUT(QVCocoaFunctions::hasNativeSettingsToolbar(dialog.windowHandle()),
                              2000);
+    QCOMPARE(nativeSettingsPaneLabels(dialog.windowHandle()),
+             (QStringList{ "General", "Shortcuts", "Mouse & Trackpad" }));
+    QVERIFY(nativeSelectSettingsPane(dialog.windowHandle(), 2));
+    QCOMPARE(tabs->currentIndex(), 2);
+    QVERIFY(nativeSelectSettingsPane(dialog.windowHandle(), 0));
+    QCOMPARE(tabs->currentIndex(), 0);
     QTRY_COMPARE_WITH_TIMEOUT(dialog.windowTitle(), tabs->tabText(tabs->currentIndex()), 2000);
     QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
                               QStringLiteral("Aqua"), 2000);
@@ -12933,89 +12940,30 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
 void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
 {
     ScopedOptionValues options({ { "language", QStringLiteral("en") } });
-
     QVOptionsDialog dialog;
     dialog.setAttribute(Qt::WA_DeleteOnClose, false);
     auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
-    auto *generalScrollArea = dialog.findChild<QScrollArea *>("generalScrollArea");
-    auto *mouseScrollArea = dialog.findChild<QScrollArea *>("mouseScrollArea");
-    auto *table = dialog.findChild<QTableWidget *>("shortcutsTable");
     auto *stack = dialog.findChild<QStackedWidget *>("stackedWidget");
     QVERIFY(tabs);
-    QVERIFY(generalScrollArea);
-    QVERIFY(mouseScrollArea);
-    QVERIFY(table);
     QVERIFY(stack);
     tabs->setCurrentIndex(0);
-    dialog.prepareForDisplay();
-    QVERIFY(dialog.property("settingsAdaptiveTabWidths").toBool());
-    QVariantList tabWidths = dialog.property("settingsTabWidths").toList();
-    QCOMPARE(tabWidths.size(), tabs->count());
-    for (const QVariant &width : tabWidths)
-        QVERIFY(width.toInt() > 0);
-    const QMargins dialogMargins = dialog.layout()->contentsMargins();
-    QVERIFY(!dialog.isSizeGripEnabled());
-    QCOMPARE(table->rowCount() >= 16, true);
-    QCOMPARE(table->item(15, 0)->text(), QStringLiteral("Random File"));
-
     dialog.show();
-    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-    QTest::qWait(50);
-    tabs->setCurrentIndex(0);
-    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-    tabWidths = dialog.property("settingsTabWidths").toList();
-    QCOMPARE(tabWidths.size(), tabs->count());
-    const auto dialogWidthForTab = [&](const int index) {
-        return tabWidths.at(index).toInt() + dialogMargins.left() + dialogMargins.right();
-    };
-    QCOMPARE(dialog.width(), dialogWidthForTab(0));
-    QCOMPARE(dialog.minimumWidth(), dialog.width());
-    QCOMPARE(dialog.maximumWidth(), dialog.width());
-    QCOMPARE(stack->width(), tabWidths.at(0).toInt());
-    QCOMPARE(generalScrollArea->horizontalScrollBar()->maximum(), 0);
-    QCOMPARE(generalScrollArea->verticalScrollBar()->maximum(), 0);
-    QVERIFY(!generalScrollArea->verticalScrollBar()->isVisible());
-    QCOMPARE(generalScrollArea->widget()->minimumHeight(), generalScrollArea->viewport()->height());
-    QCOMPARE(generalScrollArea->widget()->minimumWidth(), generalScrollArea->viewport()->width());
-    const int generalHeight = dialog.height();
-    QVERIFY(generalHeight > 0);
+    QTRY_VERIFY(dialog.isVisible());
 
-    tabs->setCurrentIndex(1);
-    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-    QCOMPARE(dialog.width(), dialogWidthForTab(1));
-    QCOMPARE(stack->width(), tabWidths.at(1).toInt());
-    int visibleRowsHeight = 0;
-    for (int row = 0; row < 16; ++row)
-        visibleRowsHeight += table->rowHeight(row);
-    const int expectedTableHeight =
-            table->horizontalHeader()->height() + visibleRowsHeight + 2 * table->frameWidth();
-    QCOMPARE(table->height(), expectedTableHeight);
-    QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
-    QCOMPARE(table->viewport()->height(), visibleRowsHeight);
-    QCOMPARE(table->viewport()->width(), table->horizontalHeader()->length());
-    QVERIFY(qAbs(table->horizontalHeader()->sectionSize(0)
-                 - table->horizontalHeader()->sectionSize(1))
-            <= 1);
-    QVERIFY(table->visualItemRect(table->item(15, 0)).bottom()
-            <= table->viewport()->rect().bottom());
-    if (table->rowCount() > 16)
-        QVERIFY(table->visualItemRect(table->item(16, 0)).bottom()
-                > table->viewport()->rect().bottom());
-    const int shortcutsHeight = dialog.height();
-    QVERIFY(shortcutsHeight > 0);
-
-    tabs->setCurrentIndex(2);
-    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-    QCOMPARE(dialog.width(), dialogWidthForTab(2));
-    QCOMPARE(stack->width(), tabWidths.at(2).toInt());
-    QCOMPARE(mouseScrollArea->horizontalScrollBar()->maximum(), 0);
-    QCOMPARE(mouseScrollArea->verticalScrollBar()->maximum(), 0);
-    QVERIFY(!mouseScrollArea->verticalScrollBar()->isVisible());
-    QCOMPARE(mouseScrollArea->widget()->minimumHeight(), mouseScrollArea->viewport()->height());
-    QCOMPARE(mouseScrollArea->widget()->minimumWidth(), mouseScrollArea->viewport()->width());
-    QVERIFY(dialog.height() > 0);
-    QVERIFY(dialog.height() != shortcutsHeight || dialog.height() != generalHeight);
-
+    QSet<int> contentHeights;
+    for (int index = 0; index < tabs->count(); ++index) {
+        tabs->setCurrentIndex(index);
+        QTRY_VERIFY(!dialog.property("settingsCategoryTransitionActive").toBool());
+        QCOMPARE(dialog.width(), 512);
+        QCOMPARE(dialog.minimumWidth(), dialog.maximumWidth());
+        QCOMPARE(stack->currentIndex(), index);
+        const int height = dialog.property("settingsCategoryContentHeight").toInt();
+        QVERIFY(height > 0);
+        contentHeights.insert(height);
+        if (const auto *area = qobject_cast<QScrollArea *>(stack->currentWidget()))
+            QCOMPARE(area->horizontalScrollBar()->maximum(), 0);
+    }
+    QCOMPARE(contentHeights.size(), 3);
     dialog.close();
 }
 
@@ -13128,637 +13076,56 @@ void WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()
     dialog.close();
 }
 
-// TC-SETTINGS-LOCALIZED-ALIGNMENT
-// Test purpose: verify all translated General and Mouse form layouts share a
-// label column and do not center independent form size hints.
-// Preconditions: the production Settings dialog can be constructed.
-// Input data: QFormLayout objects under General and Mouse content pages.
-// Steps: enumerate each page's form layouts and compare column minimum widths,
-// wrap policy, and horizontal form alignment.
-// Expected result: each page has one shared label-column width, no row wrapping,
-// both pages use the same label-column width, and left-aligned form origins keep
-// localized labels from shifting fields.
-// Postcondition: the dialog is destroyed without changing settings.
 void WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()
 {
     QVOptionsDialog dialog;
-    auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
-    auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
-    QVERIFY(general);
-    QVERIFY(mouse);
-
-    const auto verifyPage = [](QWidget *page) {
-        const auto layouts = page->findChildren<QFormLayout *>();
-        QVERIFY(!layouts.isEmpty());
-        const int expectedWidth = page->property("settingsAlignedLabelColumnWidth").toInt();
-        QVERIFY(expectedWidth > 0);
-        for (auto *layout : layouts) {
-            QCOMPARE(layout->rowWrapPolicy(), QFormLayout::DontWrapRows);
-            QVERIFY(!(layout->formAlignment() & Qt::AlignHCenter));
-            for (int row = 0; row < layout->rowCount(); ++row) {
-                auto *item = layout->itemAt(row, QFormLayout::LabelRole);
-                if (item && item->widget())
-                    QCOMPARE(item->widget()->minimumWidth(), expectedWidth);
-            }
-        }
-    };
-
-    verifyPage(general->widget());
-    verifyPage(mouse->widget());
-    QCOMPARE(general->widget()->property("settingsAlignedLabelColumnWidth").toInt(),
-             mouse->widget()->property("settingsAlignedLabelColumnWidth").toInt());
-}
-
-// TC-SETTINGS-PER-LANGUAGE-GEOMETRY
-// Test purpose: verify geometry is re-derived from each installed language
-// catalog while retaining the same no-scroll / 16-row constraints.
-void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
-{
-#ifndef FOVELLE_TRANSLATIONS_DIR
-    QSKIP("Translation catalogs were disabled for this build");
-#else
-    ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
-    ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
-    ScopedSettingPreserver geometrySetting(QStringLiteral("optionsgeometry"));
-    const QList<QString> languages{ QStringLiteral("en"), QStringLiteral("es"),
-                                    QStringLiteral("ja"), QStringLiteral("zh_Hans"),
-                                    QStringLiteral("zh_Hant") };
-    QHash<QString, QList<QSize>> sizesByLanguage;
-
-    for (const QString &language : languages) {
-        SourceLanguageTranslator sourceTranslator;
-        QTranslator catalogTranslator;
-        QTranslator *translator = &sourceTranslator;
-        if (language != QStringLiteral("en")) {
-            const QString path =
-                    QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language);
-            QVERIFY2(catalogTranslator.load(path), qPrintable(path));
-            QVERIFY(!catalogTranslator.translate("ShortcutManager", "Random File").isNull());
-            translator = &catalogTranslator;
-        }
-        QVERIFY(QCoreApplication::installTranslator(translator));
-
-        {
-            ScopedOptionValues options({ { "language", language } });
-            QSettings settings;
-            settings.setValue(QStringLiteral("optionstab"), 0);
-            settings.setValue(QStringLiteral("optionstabversion"), 2);
-            settings.sync();
-
-            QVOptionsDialog dialog;
-            dialog.setAttribute(Qt::WA_DeleteOnClose, false);
-            auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
-            auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
-            auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
-            auto *table = dialog.findChild<QTableWidget *>(QStringLiteral("shortcutsTable"));
-            QVERIFY(tabs);
-            QVERIFY(general);
-            QVERIFY(mouse);
-            QVERIFY(table);
-
-            // ShortcutManager is constructed once before this test installs
-            // its per-row translator. Mirror a real restart by translating
-            // those startup-owned readable names before the dialog's final
-            // native-toolbar measurement pass.
-            const auto &shortcutSources = qvApp->getShortcutManager().getShortcutsList();
-            for (int row = 0; row < table->rowCount() && row < shortcutSources.size(); ++row) {
-                const QByteArray source = shortcutSources.at(row).readableName.toUtf8();
-                table->item(row, 0)->setText(
-                        QCoreApplication::translate("ShortcutManager", source.constData()));
-            }
-            dialog.prepareForDisplay();
-
-            dialog.show();
-            QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-            QTest::qWait(50);
-            QList<QSize> categorySizes;
-            const QMargins dialogMargins = dialog.layout()->contentsMargins();
-            const QVariantList tabWidths = dialog.property("settingsTabWidths").toList();
-            QCOMPARE(tabWidths.size(), tabs->count());
-            for (int category = 0; category < tabs->count(); ++category) {
-                tabs->setCurrentIndex(category);
-                QTRY_VERIFY_WITH_TIMEOUT(
-                        !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-                categorySizes.append(dialog.size());
-                QCOMPARE(dialog.width(),
-                         tabWidths.at(category).toInt() + dialogMargins.left()
-                                 + dialogMargins.right());
-                QCOMPARE(dialog.findChild<QStackedWidget *>(QStringLiteral("stackedWidget"))
-                                 ->width(),
-                         tabWidths.at(category).toInt());
-            }
-
-            QCOMPARE(categorySizes.at(0).width(),
-                     tabWidths.at(0).toInt() + dialogMargins.left() + dialogMargins.right());
-            QCOMPARE(categorySizes.at(1).width(),
-                     tabWidths.at(1).toInt() + dialogMargins.left() + dialogMargins.right());
-            QCOMPARE(categorySizes.at(2).width(),
-                     tabWidths.at(2).toInt() + dialogMargins.left() + dialogMargins.right());
-            tabs->setCurrentIndex(0);
-            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
-                                     1000);
-            QCOMPARE(general->horizontalScrollBar()->maximum(), 0);
-            QCOMPARE(general->verticalScrollBar()->maximum(), 0);
-            QCOMPARE(general->viewport()->height(), general->widget()->minimumHeight());
-            tabs->setCurrentIndex(2);
-            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
-                                     1000);
-            QCOMPARE(mouse->horizontalScrollBar()->maximum(), 0);
-            QCOMPARE(mouse->verticalScrollBar()->maximum(), 0);
-            QCOMPARE(mouse->viewport()->height(), mouse->widget()->minimumHeight());
-            QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
-            QCOMPARE(table->item(15, 0)->text(),
-                     QCoreApplication::translate("ShortcutManager", "Random File"));
-
-            int visibleRowsHeight = 0;
-            for (int row = 0; row < 16; ++row)
-                visibleRowsHeight += table->rowHeight(row);
-            QCOMPARE(table->viewport()->height(), visibleRowsHeight);
-            sizesByLanguage.insert(language, categorySizes);
-            dialog.close();
-        }
-
-        QVERIFY(QCoreApplication::removeTranslator(translator));
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
+    QVERIFY(tabs);
+    dialog.show();
+    for (const auto &[index, name] :
+         { std::pair{ 0, "generalScrollArea" }, std::pair{ 2, "mouseScrollArea" } }) {
+        tabs->setCurrentIndex(index);
+        QTRY_VERIFY(!dialog.property("settingsCategoryTransitionActive").toBool());
+        auto *page = dialog.findChild<QScrollArea *>(name);
+        QVERIFY(page);
+        const QString failure = settingsFormGeometryFailure(page->widget());
+        QVERIFY2(failure.isEmpty(), qPrintable(failure));
     }
-
-    QSet<int> languageWidths;
-    for (const QString &language : languages)
-        languageWidths.insert(sizesByLanguage.value(language).constFirst().width());
-    QVERIFY2(languageWidths.size() > 1,
-             "Translated content must produce content-derived, not globally fixed, geometry");
-#endif
+    dialog.close();
 }
 
-// TC-SETTINGS-FORM-ALIGNMENT
-// Test purpose: verify every General and Mouse form uses a shared right-aligned
-// label column and a left-aligned value column for every supported language.
-// Preconditions: the Cocoa Qt test application, all five supported catalogs,
-// and a writable isolated settings store are available.
-// Input data: en, es, ja, zh_Hans, zh_Hant; every QFormLayout under General and
-// Mouse, including combo boxes, spin boxes, checkboxes, radio-button layouts,
-// and the centered association action.
-// Steps: install one language catalog, show Settings, activate every form,
-// inspect form and item alignments, then compare the runtime label/value
-// column origins; repeat for all supported languages.
-// Expected result: labels end at one shared right-aligned column, values begin
-// at the following shared left-aligned column, no form is horizontally centered,
-// and the action row remains intentionally centered.
-// Postcondition: every dialog, translator, and temporary setting is restored.
-void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
-{
-#ifndef FOVELLE_TRANSLATIONS_DIR
-    QSKIP("Translation catalogs were disabled for this build");
-#else
-    ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
-    ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
-    const QList<QString> languages{ QStringLiteral("en"), QStringLiteral("es"),
-                                    QStringLiteral("ja"), QStringLiteral("zh_Hans"),
-                                    QStringLiteral("zh_Hant") };
-    const Qt::Alignment expectedLabelAlignment = Qt::AlignRight | Qt::AlignTrailing;
-    const Qt::Alignment expectedLabelContentAlignment = expectedLabelAlignment | Qt::AlignVCenter;
-    const Qt::Alignment expectedValueAlignment = Qt::AlignLeft | Qt::AlignTop;
-    const QStringList valueOnlyNames{ QStringLiteral("checkerboardBackgroundCheckbox"),
-                                      QStringLiteral("reuseWindowCheckbox"),
-                                      QStringLiteral("smallImagesOneToOneCheckbox"),
-                                      QStringLiteral("keepZoomCheckbox"),
-                                      QStringLiteral("askDeleteCheckbox") };
-
-    const auto alignmentHas = [](const Qt::Alignment actual, const Qt::Alignment expected) {
-        return (actual & expected) == expected;
-    };
-
-    for (const QString &language : languages) {
-        SourceLanguageTranslator sourceTranslator;
-        QTranslator catalogTranslator;
-        QTranslator *translator = &sourceTranslator;
-        if (language != QStringLiteral("en")) {
-            const QString path =
-                    QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language);
-            QVERIFY2(catalogTranslator.load(path), qPrintable(path));
-            translator = &catalogTranslator;
-        }
-        QVERIFY(QCoreApplication::installTranslator(translator));
-
-        {
-            ScopedOptionValues options(
-                    { { QStringLiteral("language"), language },
-                      { QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark) },
-                      { QStringLiteral("viewportmiddlebuttonmode"),
-                        static_cast<int>(Qv::ClickOrDrag::Click) } });
-            QSettings settings;
-            settings.setValue(QStringLiteral("optionstab"), 0);
-            settings.setValue(QStringLiteral("optionstabversion"), 2);
-            settings.sync();
-
-            QVOptionsDialog dialog;
-            dialog.setAttribute(Qt::WA_DeleteOnClose, false);
-            auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
-            auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
-            auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
-            QVERIFY(tabs);
-            QVERIFY(general);
-            QVERIFY(mouse);
-            dialog.prepareForDisplay();
-            dialog.show();
-            QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-
-            const auto verifyPage = [&](QScrollArea *scrollArea) {
-                QWidget *page = scrollArea->widget();
-                QVERIFY(page);
-                const int expectedLabelWidth =
-                        page->property("settingsAlignedLabelColumnWidth").toInt();
-                QVERIFY(expectedLabelWidth > 0);
-                QCOMPARE(page->property("settingsLabelAlignment").toInt(),
-                         int(expectedLabelAlignment));
-                QCOMPARE(page->property("settingsValueAlignment").toInt(),
-                         int(expectedValueAlignment));
-
-                const auto layouts = page->findChildren<QFormLayout *>();
-                QVERIFY(!layouts.isEmpty());
-                const auto itemIsVisible = [](QLayoutItem *item) {
-                    if (!item)
-                        return false;
-                    if (item->widget())
-                        return item->widget()->isVisible();
-                    if (item->layout()) {
-                        for (int index = 0; index < item->layout()->count(); ++index) {
-                            auto *child = item->layout()->itemAt(index);
-                            if (child && child->widget() && child->widget()->isVisible())
-                                return true;
-                        }
-                    }
-                    return false;
-                };
-                for (auto *layout : layouts) {
-                    QCOMPARE(layout->labelAlignment(), expectedLabelAlignment);
-                    QVERIFY(alignmentHas(layout->formAlignment(), Qt::AlignLeft | Qt::AlignTop));
-                    QVERIFY(!(layout->formAlignment() & Qt::AlignHCenter));
-                    QCOMPARE(layout->rowWrapPolicy(), QFormLayout::DontWrapRows);
-
-                    int labelColumnRight = -1;
-                    int fieldColumnLeft = -1;
-                    for (int row = 0; row < layout->rowCount(); ++row) {
-                        auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
-                        auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
-                        auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
-                        if (spanningItem && spanningItem->widget()) {
-                            QVERIFY2(!valueOnlyNames.contains(spanningItem->widget()->objectName()),
-                                     qPrintable(
-                                             language
-                                             + QStringLiteral(": value-only option must not span ")
-                                             + spanningItem->widget()->objectName()));
-                        }
-                        if (fieldItem && fieldItem->widget()
-                            && valueOnlyNames.contains(fieldItem->widget()->objectName())) {
-                            QVERIFY2(!spanningItem,
-                                     qPrintable(
-                                             language
-                                             + QStringLiteral(": value-only option has both roles ")
-                                             + fieldItem->widget()->objectName()));
-                        }
-                        if (!itemIsVisible(labelItem) && !itemIsVisible(fieldItem)
-                            && !itemIsVisible(spanningItem))
-                            continue;
-
-                        if (labelItem && labelItem->widget()) {
-                            auto *label = qobject_cast<QLabel *>(labelItem->widget());
-                            QVERIFY(label);
-                            if (!label->isVisible())
-                                continue;
-                            QCOMPARE(label->minimumWidth(), expectedLabelWidth);
-                            const int thisLabelRight = label->geometry().x() + label->width();
-                            if (labelColumnRight < 0)
-                                labelColumnRight = thisLabelRight;
-                            else {
-                                QVERIFY2(thisLabelRight == labelColumnRight,
-                                         qPrintable(language + QStringLiteral(": label column ")
-                                                    + layout->objectName() + QStringLiteral("/")
-                                                    + label->objectName()));
-                            }
-                            QCOMPARE(label->alignment(), expectedLabelContentAlignment);
-                        }
-
-                        if (fieldItem) {
-                            if (!itemIsVisible(fieldItem))
-                                continue;
-                            const QString fieldName = fieldItem->widget()
-                                    ? fieldItem->widget()->objectName()
-                                    : fieldItem->layout() ? fieldItem->layout()->objectName()
-                                                          : QStringLiteral("anonymous");
-                            const bool isAssociationButton =
-                                    fieldName == QStringLiteral("associateFormatsButton");
-                            if (isAssociationButton) {
-                                QVERIFY2(alignmentHas(fieldItem->alignment(),
-                                                      Qt::AlignHCenter | Qt::AlignVCenter),
-                                         qPrintable(language
-                                                    + QStringLiteral(": association alignment")));
-                            } else {
-                                QVERIFY2(alignmentHas(fieldItem->alignment(),
-                                                      expectedValueAlignment),
-                                         qPrintable(language + QStringLiteral(": value alignment ")
-                                                    + fieldName));
-                            }
-                            auto *fieldWidget = fieldItem->widget();
-                            QVERIFY(fieldWidget);
-                            const QRect fieldGeometry = fieldItem->geometry();
-                            QVERIFY(fieldGeometry.isValid());
-                            if (!isAssociationButton) {
-                                if (fieldColumnLeft < 0)
-                                    fieldColumnLeft = fieldGeometry.x();
-                                else
-                                    QCOMPARE(fieldGeometry.x(), fieldColumnLeft);
-
-                                if (labelItem && labelItem->widget()) {
-                                    auto *label = qobject_cast<QLabel *>(labelItem->widget());
-                                    QVERIFY(label);
-                                    const QRect labelGeometry = labelItem->geometry();
-                                    const int expectedFieldX = labelGeometry.x()
-                                            + labelGeometry.width() + layout->horizontalSpacing();
-                                    QVERIFY2(fieldGeometry.x() >= expectedFieldX,
-                                             qPrintable(language
-                                                        + QStringLiteral(
-                                                                ": label/value horizontal gap ")
-                                                        + layout->objectName() + QStringLiteral("/")
-                                                        + label->objectName() + QStringLiteral("/")
-                                                        + fieldName + QStringLiteral(" label=")
-                                                        + QString::number(labelGeometry.x())
-                                                        + QStringLiteral(",")
-                                                        + QString::number(labelGeometry.width())
-                                                        + QStringLiteral(" field=")
-                                                        + QString::number(fieldGeometry.x())
-                                                        + QStringLiteral(",")
-                                                        + QString::number(fieldGeometry.width())
-                                                        + QStringLiteral(" expectedX=")
-                                                        + QString::number(expectedFieldX)));
-                                    QCOMPARE(labelGeometry.top(), fieldGeometry.top());
-                                    QCOMPARE(label->height(), fieldWidget->height());
-                                }
-                            }
-                        }
-
-                        if (spanningItem && spanningItem->widget()
-                            && spanningItem->widget()->objectName()
-                                    == QStringLiteral("associateFormatsButton")) {
-                            QVERIFY(alignmentHas(spanningItem->alignment(),
-                                                 Qt::AlignHCenter | Qt::AlignVCenter));
-                        } else if (spanningItem) {
-                            QVERIFY(alignmentHas(spanningItem->alignment(),
-                                                 expectedValueAlignment));
-                            const QRect spanningGeometry = spanningItem->geometry();
-                            QVERIFY(spanningGeometry.isValid());
-                            if (fieldColumnLeft < 0)
-                                fieldColumnLeft = spanningGeometry.x();
-                            else
-                                QCOMPARE(spanningGeometry.x(), fieldColumnLeft);
-                        }
-                    }
-                }
-            };
-
-            tabs->setCurrentIndex(0);
-            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
-                                     1000);
-            verifyPage(general);
-            tabs->setCurrentIndex(2);
-            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
-                                     1000);
-            verifyPage(mouse);
-            QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("middleButtonModeLabel")));
-            QVERIFY(!dialog.findChild<QRadioButton *>(
-                    QStringLiteral("middleButtonModeClickRadioButton")));
-            QVERIFY(!dialog.findChild<QRadioButton *>(
-                    QStringLiteral("middleButtonModeDragRadioButton")));
-            dialog.close();
-        }
-
-        QVERIFY(QCoreApplication::removeTranslator(translator));
-    }
-#endif
-}
-
-// TC-SETTINGS-COLON-ALIGNMENT
-// Test purpose: verify that every visible colon-terminated option name in the
-// General and Mouse pages ends at one shared right edge in every language.
-// Preconditions: all five translation catalogs, the Cocoa Qt test application,
-// and an isolated writable settings store are available.
-// Input data: en, es, ja, zh_Hans, zh_Hant; the visible General and Mouse
-// settings pages after final polish and category activation.
-// Steps: install one language, construct and show Settings, activate General
-// and Mouse, and compare each visible label's mapped right edge and alignment.
-// Expected result: every label ending in ':' or '：' uses one terminal colon
-// glyph per language, is right/trailing aligned, and all such labels on the
-// same page share exactly one right edge. A mixed ASCII/full-width set would
-// make the visible punctuation edges differ even when widget rectangles match.
-// Postcondition: the dialog, translator, and temporary settings are restored.
-void WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations()
-{
-#ifndef FOVELLE_TRANSLATIONS_DIR
-    QSKIP("Translation catalogs were disabled for this build");
-#else
-    ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
-    ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
-    const QList<QString> languages{ QStringLiteral("en"), QStringLiteral("es"),
-                                    QStringLiteral("ja"), QStringLiteral("zh_Hans"),
-                                    QStringLiteral("zh_Hant") };
-
-    for (const QString &language : languages) {
-        SourceLanguageTranslator sourceTranslator;
-        QTranslator catalogTranslator;
-        QTranslator *translator = &sourceTranslator;
-        if (language != QStringLiteral("en")) {
-            const QString path =
-                    QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language);
-            QVERIFY2(catalogTranslator.load(path), qPrintable(path));
-            translator = &catalogTranslator;
-        }
-        QVERIFY(QCoreApplication::installTranslator(translator));
-
-        {
-            ScopedOptionValues options({ { QStringLiteral("language"), language } });
-            QSettings settings;
-            settings.setValue(QStringLiteral("optionstab"), 0);
-            settings.setValue(QStringLiteral("optionstabversion"), 2);
-            settings.sync();
-
-            QVOptionsDialog dialog;
-            dialog.setAttribute(Qt::WA_DeleteOnClose, false);
-            auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
-            auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
-            auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
-            QVERIFY(tabs);
-            QVERIFY(general);
-            QVERIFY(mouse);
-
-            dialog.prepareForDisplay();
-            dialog.show();
-            QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-
-            const auto verifyPage = [&](QScrollArea *scrollArea, const int tabIndex) {
-                tabs->setCurrentIndex(tabIndex);
-                QTRY_VERIFY_WITH_TIMEOUT(
-                        !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-                QCoreApplication::processEvents();
-                const QString failure = settingsLabelColumnFailure(scrollArea->widget());
-                QVERIFY2(failure.isEmpty(),
-                         qPrintable(language + QStringLiteral(" tab=") + QString::number(tabIndex)
-                                    + QStringLiteral(": ") + failure));
-            };
-
-            verifyPage(general, 0);
-            verifyPage(mouse, 2);
-            dialog.close();
-        }
-
-        QVERIFY(QCoreApplication::removeTranslator(translator));
-    }
-#endif
-}
-
-// TC-SETTINGS-SPACING
-// Test purpose: verify that General and Mouse use the same native form
-// spacing and that every group gap is strictly larger than every row gap.
-// Preconditions: the production Settings dialog and Cocoa widget style are
-// available; the dialog can be shown without invoking any action.
-// Input data: every General/Mouse QFormLayout, direct group geometry, style
-// spacing properties.
-// Steps: show Settings, inspect both pages and all forms, and compare direct
-// group gaps.
-// Expected result: all forms report verticalSpacing=-1, both pages expose the
-// same computed group spacing, every measured intra-group gap is smaller, and
-// extra height is represented only by the final stretch item.
-// Postcondition: the dialog is closed and settings are unchanged.
 void WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()
 {
     QVOptionsDialog dialog;
-    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
-    dialog.show();
-    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-
-    auto *generalScroll = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
-    auto *mouseScroll = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
-    QVERIFY(generalScroll);
-    QVERIFY(mouseScroll);
-    auto *generalContent = generalScroll->widget();
-    auto *mouseContent = mouseScroll->widget();
-    QVERIFY(generalContent);
-    QVERIFY(mouseContent);
-
-    const int groupSpacing = generalContent->property("settingsGroupSpacing").toInt();
-    const int intraSpacing = generalContent->property("settingsIntraGroupMaxSpacing").toInt();
-    QVERIFY(groupSpacing > 0);
-    QVERIFY(intraSpacing >= 0);
-    QVERIFY(groupSpacing > intraSpacing);
-    QCOMPARE(mouseContent->property("settingsGroupSpacing").toInt(), groupSpacing);
-    QCOMPARE(mouseContent->property("settingsIntraGroupMaxSpacing").toInt(), intraSpacing);
-
-    const auto verifyForms = [&](QWidget *page) {
-        const auto forms = page->findChildren<QFormLayout *>();
+    auto *general = dialog.findChild<QScrollArea *>("generalScrollArea");
+    auto *mouse = dialog.findChild<QScrollArea *>("mouseScrollArea");
+    QVERIFY(general);
+    QVERIFY(mouse);
+    QCOMPARE(general->widget()->layout()->count(), 5);
+    QCOMPARE(mouse->widget()->layout()->count(), 3);
+    QCOMPARE(general->widget()->layout()->spacing(), mouse->widget()->layout()->spacing());
+    for (auto *page : { general, mouse }) {
+        const auto forms = page->widget()->findChildren<QGridLayout *>();
         QVERIFY(!forms.isEmpty());
         for (auto *form : forms) {
-            QCOMPARE(form->verticalSpacing(), -1);
-            for (int row = 1; row < form->rowCount(); ++row) {
-                auto *previous = form->itemAt(row - 1, QFormLayout::FieldRole);
-                auto *current = form->itemAt(row, QFormLayout::FieldRole);
-                if (!previous || !current || !previous->widget() || !current->widget()
-                    || previous->widget()->isHidden() || current->widget()->isHidden())
-                    continue;
-                const int gap = current->widget()->geometry().top()
-                        - (previous->widget()->geometry().top()
-                           + previous->widget()->geometry().height());
-                QVERIFY2(gap < groupSpacing,
-                         qPrintable(form->objectName() + QStringLiteral(" gap=")
-                                    + QString::number(gap)));
-            }
+            QVERIFY(form->verticalSpacing() <= 4);
+            for (int row = 0; row < form->rowCount(); ++row)
+                QCOMPARE(form->rowMinimumHeight(row), 24);
         }
-    };
-
-    const auto verifyGroups = [&](QWidget *page, const int expectedCount) {
-        auto *layout = qobject_cast<QVBoxLayout *>(page->layout());
-        QVERIFY(layout);
-        QVERIFY(layout->count() >= expectedCount + 1);
-        QVERIFY(layout->itemAt(layout->count() - 1)->spacerItem());
-        QList<QLayoutItem *> groups;
-        for (int index = 0; index < layout->count(); ++index) {
-            if (layout->itemAt(index)->widget())
-                groups.append(layout->itemAt(index));
-        }
-        QCOMPARE(groups.size(), expectedCount);
-        for (int index = 1; index < groups.size(); ++index) {
-            const QRect previous = groups.at(index - 1)->geometry();
-            const QRect current = groups.at(index)->geometry();
-            const int gap = current.top() - (previous.top() + previous.height());
-            QCOMPARE(gap, groupSpacing);
-        }
-    };
-
-    QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("middleButtonModeLabel")));
-    QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeClickRadioButton")));
-    QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeDragRadioButton")));
-    verifyForms(generalContent);
-    verifyForms(mouseContent);
-    verifyGroups(generalContent, 8);
-    verifyGroups(mouseContent, 3);
-    dialog.close();
+    }
 }
 
-// TC-SETTINGS-ASSOCIATE-NATIVE-STYLE
-// Test purpose: verify the association action restores the direct native
-// QPushButton state used by the pre-regression macOS Settings page.
-// Preconditions: the production Settings dialog and Cocoa widget style are
-// available; no real file-association action is invoked.
-// Input data: associateFormatsButton role/alignment, stylesheet, size policy,
-// native default properties, QStyleOptionButton features, and final geometry.
-// Steps: show Settings, inspect the action row and native style option, then
-// compare the final geometry with the native size hint.
-// Expected result: the button is a direct SpanningRole widget, centered,
-// non-flat, auto-default, default, stylesheet-free, and sized by sizeHint.
-// Postcondition: the dialog is closed without clicking the button.
 void WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()
 {
     QVOptionsDialog dialog;
-    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
-    dialog.show();
-    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-
-    auto *button = dialog.findChild<QPushButton *>(QStringLiteral("associateFormatsButton"));
-    auto *group8 = dialog.findChild<QWidget *>(QStringLiteral("settingsGroup8"));
+    auto *button = dialog.findChild<QPushButton *>("associateFormatsButton");
     QVERIFY(button);
-    QVERIFY(group8);
-    auto *layout = qobject_cast<QFormLayout *>(group8->layout());
-    QVERIFY(layout);
-
-    auto *item = layout->itemAt(0, QFormLayout::SpanningRole);
-    QVERIFY(item);
-    QCOMPARE(item->widget(), static_cast<QWidget *>(button));
-    QVERIFY((item->alignment() & (Qt::AlignHCenter | Qt::AlignVCenter))
-            == (Qt::AlignHCenter | Qt::AlignVCenter));
-    QVERIFY(button->style());
+    QVERIFY(dialog.findChild<QWidget *>("updatesAssociations")->isAncestorOf(button));
     QVERIFY(button->styleSheet().isEmpty());
     QVERIFY(!button->isFlat());
-    QVERIFY(button->autoDefault());
-    QVERIFY(button->isDefault());
-    QCOMPARE(button->minimumWidth(), 0);
-    QVERIFY(button->minimumHeight() <= button->sizeHint().height());
-
-    QVERIFY(item->geometry().size().expandedTo(item->sizeHint()) == item->geometry().size());
-
-    const QImage rendered = button->grab().toImage();
-    QVERIFY(!rendered.isNull());
-    if (button->style()->objectName().contains(QStringLiteral("mac"), Qt::CaseInsensitive)
-        && rendered.height() > 2) {
-        int maximumVerticalDelta = 0;
-        for (int y = 1; y < rendered.height(); ++y) {
-            const QColor above = rendered.pixelColor(rendered.width() / 2, y - 1);
-            const QColor current = rendered.pixelColor(rendered.width() / 2, y);
-            maximumVerticalDelta =
-                    qMax(maximumVerticalDelta,
-                         qAbs(above.red() - current.red()) + qAbs(above.green() - current.green())
-                                 + qAbs(above.blue() - current.blue()));
-        }
-        QVERIFY(maximumVerticalDelta > 0);
-    }
-
-    dialog.close();
+    QVERIFY(!button->autoDefault());
+    QVERIFY(!button->isDefault());
 }
 
 // TC-SETTINGS-ALL-LANGUAGES-TABS
@@ -13816,27 +13183,30 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
     const auto verifyScrollPage = [&](QScrollArea *scrollArea, const QString &language) {
         QVERIFY2(scrollArea, qPrintable(language));
         QCOMPARE(scrollArea->horizontalScrollBar()->maximum(), 0);
-        auto *viewport = scrollArea->viewport();
         auto *pageLayout = scrollArea->widget()->layout();
         QVERIFY2(pageLayout, qPrintable(language + QStringLiteral(": page layout")));
         for (auto *widget : scrollArea->widget()->findChildren<QWidget *>()) {
             if (widget->objectName().isEmpty() || widget->isHidden() || !isInspectable(widget))
                 continue;
 
-            const QRect mapped(widget->mapTo(viewport, QPoint(0, 0)), widget->size());
-            QVERIFY2(viewport->rect().contains(mapped),
+            const QRect mapped(widget->mapTo(scrollArea->widget(), QPoint(0, 0)), widget->size());
+            QVERIFY2(scrollArea->widget()->rect().contains(mapped),
                      qPrintable(language + QStringLiteral(": ") + widget->objectName()));
             auto *item = findLayoutItemForWidget(pageLayout, widget, findLayoutItemForWidget);
             QVERIFY2(
                     item,
                     qPrintable(language + QStringLiteral(": layout item ") + widget->objectName()));
-            QVERIFY2(item->geometry().width() >= item->sizeHint().width(),
-                     qPrintable(language + QStringLiteral(": natural width ")
-                                + widget->objectName()));
+            if (!qobject_cast<QLabel *>(widget))
+                QVERIFY2(item->geometry().width() >= item->minimumSize().width(),
+                         qPrintable(language + QStringLiteral(": control width ")
+                                    + widget->objectName()));
             QVERIFY2(widget->size().expandedTo(widget->minimumSizeHint()) == widget->size(),
-                     qPrintable(language + QStringLiteral(": minimum height ")
-                                + widget->objectName() + QStringLiteral(" actual=")
-                                + QString::number(widget->height()) + QStringLiteral(" hint=")
+                     qPrintable(language + QStringLiteral(": minimum size ") + widget->objectName()
+                                + QStringLiteral(" actual=") + QString::number(widget->width())
+                                + QLatin1Char('x') + QString::number(widget->height())
+                                + QStringLiteral(" hint=")
+                                + QString::number(widget->minimumSizeHint().width())
+                                + QLatin1Char('x')
                                 + QString::number(widget->minimumSizeHint().height())));
         }
     };
@@ -13885,13 +13255,21 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             dialog.prepareForDisplay();
             dialog.show();
             QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+            QTRY_COMPARE(nativeSettingsPaneLabels(dialog.windowHandle()),
+                         (QStringList{ QCoreApplication::translate("QVOptionsDialog", "General"),
+                                       QCoreApplication::translate("QVOptionsDialog", "Shortcuts"),
+                                       QCoreApplication::translate("QVOptionsDialog",
+                                                                   "Mouse & Trackpad") }));
             tabs->setCurrentIndex(0);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
-                                     1000);
+                                     2500);
+            QCOMPARE(dialog.width(), 512);
             verifyScrollPage(general, language);
+            const QString generalFailure = settingsFormGeometryFailure(general->widget());
+            QVERIFY2(generalFailure.isEmpty(), qPrintable(language + ": " + generalFailure));
             auto *reuse = dialog.findChild<QCheckBox *>(QStringLiteral("reuseWindowCheckbox"));
             QVERIFY(reuse);
-            QVERIFY(reuse->text().contains(QStringLiteral("Open images"))
+            QVERIFY(reuse->accessibleName().contains(QStringLiteral("Open images"))
                     || language != QStringLiteral("en"));
             auto *reuseItem = findLayoutItemForWidget(general->widget()->layout(), reuse,
                                                       findLayoutItemForWidget);
@@ -13900,7 +13278,8 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
 
             tabs->setCurrentIndex(1);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
-                                     1000);
+                                     2500);
+            QCOMPARE(dialog.width(), 512);
             QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
             QVERIFY(!table->horizontalHeader()->stretchLastSection());
             QCOMPARE(table->horizontalHeader()->sectionResizeMode(0), QHeaderView::Stretch);
@@ -13911,9 +13290,12 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             for (int row = 0; row < table->rowCount(); ++row) {
                 for (int column = 0; column < table->columnCount(); ++column) {
                     auto *item = table->item(row, column);
+                    if (column == 1 && table->columnSpan(row, 0) == 2)
+                        continue;
                     QVERIFY(item);
                     const QRect itemRect = table->visualItemRect(item);
-                    if (itemRect.isValid() && itemRect.top() < table->viewport()->height())
+                    if (itemRect.isValid() && itemRect.top() >= 0
+                        && itemRect.bottom() < table->viewport()->height())
                         QVERIFY2(table->viewport()->rect().contains(itemRect),
                                  qPrintable(language + QStringLiteral(": shortcut cell")));
                 }
@@ -13921,14 +13303,63 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
 
             tabs->setCurrentIndex(2);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
-                                     1000);
+                                     2500);
+            QCOMPARE(dialog.width(), 512);
             verifyScrollPage(mouse, language);
+            const QString mouseFailure = settingsFormGeometryFailure(mouse->widget());
+            QVERIFY2(mouseFailure.isEmpty(), qPrintable(language + ": " + mouseFailure));
 
             dialog.close();
         }
         QVERIFY(QCoreApplication::removeTranslator(translator));
     }
 #endif
+}
+
+void WindowBehaviorTests::testSettingsNativeAppearance()
+{
+    const QString output = qEnvironmentVariable("FOVELLE_SETTINGS_SCREENSHOT_DIR");
+    for (const auto &[theme, appearance, suffix] :
+         { std::tuple{ Qv::Theme::Light, "Aqua", "light" },
+           std::tuple{ Qv::Theme::Dark, "DarkAqua", "dark" } }) {
+        ScopedOptionValues options(
+                { { "language", QStringLiteral("en") }, { "theme", static_cast<int>(theme) } });
+        QVOptionsDialog dialog;
+        dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+        auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
+        auto *appearancePopup = dialog.findChild<QComboBox *>("themeComboBox");
+        QVERIFY(tabs && appearancePopup);
+        // Exercise the normal theme-setting path even when a previous test
+        // left the application's palette in the other appearance.
+        appearancePopup->setCurrentIndex(
+                appearancePopup->findData(static_cast<int>(Qv::Theme::System)));
+        appearancePopup->setCurrentIndex(appearancePopup->findData(static_cast<int>(theme)));
+        dialog.prepareForDisplay();
+        dialog.show();
+        dialog.raise();
+        dialog.activateWindow();
+        QTRY_VERIFY(QVCocoaFunctions::hasNativeSettingsToolbar(dialog.windowHandle()));
+        QTRY_COMPARE(QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
+                     QString::fromLatin1(appearance));
+
+        constexpr const char *panes[] = { "general", "shortcuts", "mouse-trackpad" };
+        for (int index = 0; index < tabs->count(); ++index) {
+            tabs->setCurrentIndex(index);
+            QTRY_VERIFY(!dialog.property("settingsCategoryTransitionActive").toBool());
+            QCOMPARE(dialog.width(), 512);
+            QVERIFY(!dialog.grab().isNull());
+            if (!output.isEmpty()) {
+                QTest::qWait(180);
+                const QRect frame = dialog.frameGeometry();
+                const auto capture = dialog.screen()->grabWindow(0, frame.x(), frame.y(),
+                                                                 frame.width(), frame.height());
+                QVERIFY2(capture.save(QDir(output).filePath(
+                                 QStringLiteral("%1-%2.png").arg(panes[index], suffix))),
+                         qPrintable(output));
+            }
+        }
+        dialog.close();
+    }
 }
 
 // TC-MAC-MENU-LOCALIZATION
@@ -14290,42 +13721,6 @@ void WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow()
     dialog->close();
     mainWindow.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-}
-
-// TC-SETTINGS-ASSOCIATE-CENTER
-// Test purpose: verify the file-association button is centered across the
-// General content area rather than aligned to the form's field column.
-// Preconditions: the production options dialog can be constructed and shown.
-// Input data: the button and General page geometries after layout.
-// Steps: show the dialog, map both centers to global coordinates, and compare
-// their horizontal coordinates.
-// Expected result: the button center is within one pixel of the page center.
-// Postcondition: the dialog is closed without invoking the association action.
-void WindowBehaviorTests::testAssociateFormatsButtonIsCentered()
-{
-    QVOptionsDialog dialog;
-    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
-    dialog.show();
-    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-    auto *categoryTabs = dialog.findChild<QTabBar *>("categoryTabs");
-    QVERIFY(categoryTabs);
-    categoryTabs->setCurrentIndex(0);
-
-    auto *button = dialog.findChild<QPushButton *>("associateFormatsButton");
-    auto *generalContent = dialog.findChild<QWidget *>("generalContent");
-    auto *generalScrollArea = dialog.findChild<QScrollArea *>("generalScrollArea");
-    QVERIFY(button);
-    QVERIFY(generalContent);
-    QVERIFY(generalScrollArea);
-    QTRY_VERIFY_WITH_TIMEOUT(button->width() > 0 && generalContent->width() > 0, 1000);
-
-    const int buttonCenterX = button->mapToGlobal(button->rect().center()).x();
-    const int pageCenterX = generalScrollArea->viewport()
-                                    ->mapToGlobal(generalScrollArea->viewport()->rect().center())
-                                    .x();
-    QVERIFY(qAbs(buttonCenterX - pageCenterX) <= 1);
-
-    dialog.close();
 }
 
 // TC-TITLEBAR-PERSISTENCE

@@ -2,6 +2,7 @@
 #include <QRectF>
 #include <QImage>
 #include <QColor>
+#include <QStringList>
 class QWindow;
 struct NativeTitlebarSnapshot
 {
@@ -12,6 +13,8 @@ struct NativeTitlebarSnapshot
 NativeTitlebarSnapshot nativeTitlebarSnapshot(QWindow *window);
 QSize nativeWindowContentSize(QWindow *window);
 void nativeActivateTestWindow(QWindow *window);
+QStringList nativeSettingsPaneLabels(QWindow *window);
+bool nativeSelectSettingsPane(QWindow *window, int pane);
 
 // Observe the public proxy lifecycle: presentation geometry while running,
 // committed geometry after removal. Neither Qt state nor a production clock.

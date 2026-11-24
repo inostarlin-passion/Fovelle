@@ -69,6 +69,37 @@ QSize nativeWindowContentSize(QWindow *window)
     return QSize(qRound(size.width), qRound(size.height));
 }
 
+static NSSegmentedControl *nativeSettingsTabs(QWindow *window)
+{
+    auto *view = reinterpret_cast<NSView *>(window->winId());
+    for (NSToolbarItem *item in view.window.toolbar.visibleItems) {
+        if ([item.view isKindOfClass:[NSSegmentedControl class]])
+            return static_cast<NSSegmentedControl *>(item.view);
+    }
+    return nil;
+}
+
+QStringList nativeSettingsPaneLabels(QWindow *window)
+{
+    NSSegmentedControl *tabs = nativeSettingsTabs(window);
+    QStringList labels;
+    for (NSInteger index = 0; index < tabs.segmentCount; ++index) {
+        if (![tabs imageForSegment:index])
+            return { };
+        labels.append(QString::fromNSString([tabs labelForSegment:index]));
+    }
+    return labels;
+}
+
+bool nativeSelectSettingsPane(QWindow *window, int pane)
+{
+    NSSegmentedControl *tabs = nativeSettingsTabs(window);
+    if (pane < 0 || pane >= tabs.segmentCount)
+        return false;
+    tabs.selectedSegment = pane;
+    return [tabs sendAction:tabs.action to:tabs.target];
+}
+
 void nativeActivateTestWindow(QWindow *window)
 {
     NSView *view = reinterpret_cast<NSView *>(window->winId());

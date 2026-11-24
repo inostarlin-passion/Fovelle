@@ -326,7 +326,12 @@ void QVApplication::openOptionsDialog(QWidget *parent)
         if (!optionsDialog || !guardedAnchor)
             return;
 
-        QRect centeredGeometry = optionsDialog->frameGeometry();
+        // AppKit can change the current content size when the toolbar is
+        // attached. Center the fixed size that QWidget will actually show,
+        // plus the toolbar margins from the native window.
+        const QRect contentGeometry(QPoint(), optionsDialog->minimumSize());
+        QRect centeredGeometry =
+                contentGeometry.marginsAdded(optionsDialog->windowHandle()->frameMargins());
         centeredGeometry.moveCenter(guardedAnchor->frameGeometry().center());
         optionsDialog->move(centeredGeometry.topLeft());
     };

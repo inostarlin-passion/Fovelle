@@ -1417,6 +1417,62 @@ Unable to associate: %1.</source>
         <source>Keep zoom level when switching images</source>
         <translation>画像の切り替え時にズーム倍率を維持</translation>
     </message>
+    <message>
+        <source>Mouse &amp; Trackpad</source>
+        <translation>マウスとトラックパッド</translation>
+    </message>
+    <message>
+        <source>Language &amp; Appearance</source>
+        <translation>言語と外観</translation>
+    </message>
+    <message>
+        <source>Image Browsing</source>
+        <translation>画像の閲覧</translation>
+    </message>
+    <message>
+        <source>Slideshow</source>
+        <translation>スライドショー</translation>
+    </message>
+    <message>
+        <source>File Management</source>
+        <translation>ファイル管理</translation>
+    </message>
+    <message>
+        <source>Updates &amp; File Associations</source>
+        <translation>アップデートとファイルの関連付け</translation>
+    </message>
+    <message>
+        <source>Default Image Viewer</source>
+        <translation>デフォルトの画像ビューア</translation>
+    </message>
+    <message>
+        <source>Files &amp; Clipboard</source>
+        <translation>ファイルとクリップボード</translation>
+    </message>
+    <message>
+        <source>Navigation</source>
+        <translation>ナビゲーション</translation>
+    </message>
+    <message>
+        <source>View &amp; Comparison</source>
+        <translation>表示と比較</translation>
+    </message>
+    <message>
+        <source>Animation &amp; Slideshow</source>
+        <translation>アニメーションとスライドショー</translation>
+    </message>
+    <message>
+        <source>App &amp; Windows</source>
+        <translation>アプリとウインドウ</translation>
+    </message>
+    <message>
+        <source>Double-click a shortcut to edit it.</source>
+        <translation>ショートカットをダブルクリックして編集できます。</translation>
+    </message>
+    <message>
+        <source>Edit…</source>
+        <translation>編集…</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
@@ -1462,6 +1518,14 @@ No write permission or file is read-only.</source>
     <message>
         <source>&quot;%1&quot; is already bound to &quot;%2&quot;</source>
         <translation>&quot;%1&quot; は既に &quot;%2&quot; にバインドされています</translation>
+    </message>
+    <message>
+        <source>Press the keys to assign to this action.</source>
+        <translation>この操作に割り当てるキーを押してください。</translation>
+    </message>
+    <message>
+        <source>Edit Shortcut for %1</source>
+        <translation>「%1」のショートカットを編集</translation>
     </message>
 </context>
 <context>

@@ -46,12 +46,12 @@ TRANSLATIONS = {
 CASES = (
     {
         "id": "AC-SETTINGS-TAB-WIDTHS",
-        "acceptance_criterion": "General、Shortcuts、Mouse 每个 Tab 按自身内容计算宽度，切换 Tab 后不共用最大宽度且无水平溢出。",
-        "test_purpose": "验证设置页的页面宽度来自当前 Tab 的自然内容尺寸，并在原生 Cocoa 窗口中完成切换。",
+        "acceptance_criterion": "General、Shortcuts、Mouse 三个面板统一宽度并适应内容高度，切换时无水平溢出。",
+        "test_purpose": "验证固定窗口宽度和由活动面板内容决定的高度。",
         "preconditions": "已构建带 Cocoa 的 fovelle_tests；QVOptionsDialog 可构造；macOS 事件循环可用。",
-        "input_data": "三个 Tab、每个 Tab 的 settingsTabWidths、QStackedWidget 宽度、对话框宽度和两个滚动区域。",
+        "input_data": "三个 Tab、共享的 settingsTabWidths、QStackedWidget 宽度、对话框宽度和两个滚动区域。",
         "steps": "构造并显示设置页；依次选择 General、Shortcuts、Mouse；等待尺寸动画结束；读取每个 Tab 的宽度和滚动范围。",
-        "expected_result": "每个 Tab 的内容区宽度等于该 Tab 的自然宽度，窗口宽度随 Tab 变化并与当前宽度记录一致；General/Mouse 无水平滚动。",
+        "expected_result": "三个面板的窗口宽度均为 512 pt，General 和 Mouse & Trackpad 无水平滚动。",
         "postconditions": "关闭设置页；临时语言、Tab 索引和窗口几何恢复。",
         "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights",
         "evidence_stages": ("static", "integration", "system"),
@@ -338,22 +338,19 @@ def static_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
     source_contract = {
         "new_source_in_ui": NEW_SOURCE in ui,
         "old_source_absent_in_ui": OLD_SOURCE not in ui,
-        "adaptive_width_marker": "settingsTabWidths" in cpp
-            and "settingsAdaptiveTabWidths" in cpp,
-        "independent_width_application": "settingsTabWidths.at(categoryIndex)" in cpp,
-        "equal_column_measurement": "equalShortcutColumnWidth" in cpp,
+        "shared_width_marker": "SettingsWidth = 512" in cpp
+            and "QVariantList{ pageWidth, pageWidth, pageWidth }" in cpp,
         "equal_stretch_columns": (
-            "header->setSectionResizeMode(0, QHeaderView::Stretch)" in cpp
-            and "header->setSectionResizeMode(1, QHeaderView::Stretch)" in cpp
-            and "header->setStretchLastSection(false)" in cpp
+            "horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch)" in cpp
+            and "horizontalHeaderStretchLastSection" not in ui
         ),
-        "width_animation_applies_both_axes": (
-            "setStartValue(QSize(currentWidth, currentHeight))" in cpp
-            and "setEndValue(QSize(targetWidth, targetHeight))" in cpp
+        "height_animation": (
+            "setStartValue(QSize(SettingsWidth, height()))" in cpp
+            and "setEndValue(QSize(SettingsWidth, targetHeight))" in cpp
         ),
     }
     add("ST-SOURCE-CONTRACT", all(source_contract.values()), source_contract,
-        "production code contains the per-tab width and equal-column contracts")
+        "production code contains the shared width and equal-column contracts")
 
     try:
         ui_sources = {node.text for node in ET.parse(ui_path).getroot().iter("string")
@@ -409,7 +406,7 @@ def static_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
 
     test_contract = {
         "english_label_test": "Use checkerboard background" in tests,
-        "adaptive_tab_test": "testSettingsDialogUsesFixedWidthAndTabHeights" in tests,
+        "shared_width_test": "testSettingsDialogUsesFixedWidthAndTabHeights" in tests,
         "equal_columns_test": "QHeaderView::Stretch" in tests
             and "sectionSize(0)" in tests and "sectionSize(1)" in tests
             and "qAbs(header->sectionSize(0) - header->sectionSize(1)) <= 1" in tests,
@@ -561,7 +558,6 @@ def shortcut_stage(binary: Path, repo: Path) -> dict[str, Any]:
 def integration_stage(binary: Path, repo: Path) -> dict[str, Any]:
     return qtest_stage(binary, repo, "WindowBehaviorTests", [
         "testSettingsDialogUsesFixedWidthAndTabHeights",
-        "testSettingsDialogSizesFollowTranslations",
         "testSettingsEveryTabFitsEveryLanguage",
     ], timeout=240)
 
@@ -576,7 +572,7 @@ def system_stage(application: Path, repo: Path) -> dict[str, Any]:
         "FOVELLE_SYSTEM_PROBE_DELAY_MS": "200",
     }, timeout=60)
     marker = re.search(
-        r"FOVELLE_SETTINGS_SYSTEM_PROBE tabs=(\d+) adaptive=(true|false) "
+        r"FOVELLE_SETTINGS_SYSTEM_PROBE tabs=(\d+) shared_width=(true|false) "
         r"tab_widths_valid=(true|false) current_tab_width=(\d+) "
         r"columns_equal=(true|false) checkerboard_renamed=(true|false)",
         result["output"],
@@ -584,7 +580,7 @@ def system_stage(application: Path, repo: Path) -> dict[str, Any]:
     observation = {
         "marker_found": bool(marker),
         "tabs": int(marker.group(1)) if marker else None,
-        "adaptive": marker.group(2) == "true" if marker else None,
+        "shared_width": marker.group(2) == "true" if marker else None,
         "tab_widths_valid": marker.group(3) == "true" if marker else None,
         "current_tab_width": int(marker.group(4)) if marker else None,
         "columns_equal": marker.group(5) == "true" if marker else None,
@@ -594,7 +590,7 @@ def system_stage(application: Path, repo: Path) -> dict[str, Any]:
                    "passed": bool(
                        result["passed"] and marker
                        and observation["tabs"] == 3
-                       and observation["adaptive"]
+                       and observation["shared_width"]
                        and observation["tab_widths_valid"]
                        and observation["current_tab_width"] > 0
                        and observation["columns_equal"]

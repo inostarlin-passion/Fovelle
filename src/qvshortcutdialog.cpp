@@ -6,9 +6,7 @@
 #include <QApplication>
 #include <QEvent>
 #include <QKeyEvent>
-#include <QMessageBox>
-
-#include <QDebug>
+#include <QPushButton>
 
 QVShortcutDialog::QVShortcutDialog(int index,
                                    GetTransientShortcutCallback getTransientShortcutCallback,
@@ -33,8 +31,12 @@ QVShortcutDialog::QVShortcutDialog(int index,
     shortcutObject = qvApp->getShortcutManager().getShortcutsList().value(index);
     this->index = index;
     this->getTransientShortcutCallback = getTransientShortcutCallback;
+    setWindowTitle(tr("Edit Shortcut for %1").arg(shortcutObject.readableName));
     ui->keySequenceEdit->setKeySequence(getTransientShortcutCallback(index).join(", "));
     ui->keySequenceEdit->setClearButtonEnabled(true);
+    connect(ui->keySequenceEdit, &QKeySequenceEdit::keySequenceChanged, this,
+            &QVShortcutDialog::updateConflictFeedback);
+    updateConflictFeedback();
 }
 
 QVShortcutDialog::~QVShortcutDialog()
@@ -70,27 +72,37 @@ void QVShortcutDialog::done(int r)
 void QVShortcutDialog::buttonBoxClicked(QAbstractButton *button)
 {
     if (ui->buttonBox->buttonRole(button) == QDialogButtonBox::AcceptRole) {
-        QStringList shortcutsStringList = ui->keySequenceEdit->keySequence().toString().split(", ");
-        const auto sequenceList = ShortcutManager::stringListToKeySequenceList(shortcutsStringList);
-
-        for (const auto &sequence : sequenceList) {
-            auto conflictingShortcut = shortcutAlreadyBound(sequence, shortcutObject.name);
-            if (!conflictingShortcut.isEmpty()) {
-                QString nativeShortcutString = sequence.toString(QKeySequence::NativeText);
-                NativeDialogs::showMessage(QMessageBox::Warning, tr("Shortcut Already Used"),
-                                           tr("\"%1\" is already bound to \"%2\"")
-                                                   .arg(nativeShortcutString, conflictingShortcut),
-                                           QMessageBox::Ok, this);
-                return;
-            }
-        }
+        if (!updateConflictFeedback())
+            return;
+        const QStringList shortcuts =
+                ui->keySequenceEdit->keySequence().toString(QKeySequence::PortableText).split(", ");
 
         acceptValidated();
-
-        emit shortcutsListChanged(index, shortcutsStringList);
+        emit shortcutsListChanged(index, shortcuts);
     } else if (ui->buttonBox->buttonRole(button) == QDialogButtonBox::ResetRole) {
         ui->keySequenceEdit->setKeySequence(shortcutObject.defaultShortcuts.join(", "));
     }
+}
+
+bool QVShortcutDialog::updateConflictFeedback()
+{
+    const auto keys = ui->keySequenceEdit->keySequence().toString(QKeySequence::PortableText);
+    QString conflict;
+    for (const auto &sequence : ShortcutManager::stringListToKeySequenceList(keys.split(", "))) {
+        const QString action = shortcutAlreadyBound(sequence, shortcutObject.name);
+        if (!action.isEmpty()) {
+            conflict = tr("\"%1\" is already bound to \"%2\"")
+                               .arg(sequence.toString(QKeySequence::NativeText), action);
+            break;
+        }
+    }
+
+    ui->shortcutConflict->setText(conflict);
+    ui->shortcutConflict->setVisible(!conflict.isEmpty());
+    ui->keySequenceEdit->setAccessibleDescription(
+            conflict.isEmpty() ? ui->shortcutEditorHint->text() : conflict);
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(conflict.isEmpty());
+    return conflict.isEmpty();
 }
 
 QString QVShortcutDialog::shortcutAlreadyBound(const QKeySequence &chosenSequence,

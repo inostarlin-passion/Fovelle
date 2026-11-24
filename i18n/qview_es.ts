@@ -1417,6 +1417,62 @@ No se pudo asociar: %1.</translation>
         <source>Keep zoom level when switching images</source>
         <translation>Mantener el nivel de zoom al cambiar de imagen</translation>
     </message>
+    <message>
+        <source>Mouse &amp; Trackpad</source>
+        <translation>Ratón y trackpad</translation>
+    </message>
+    <message>
+        <source>Language &amp; Appearance</source>
+        <translation>Idioma y aspecto</translation>
+    </message>
+    <message>
+        <source>Image Browsing</source>
+        <translation>Visualización de imágenes</translation>
+    </message>
+    <message>
+        <source>Slideshow</source>
+        <translation>Presentación</translation>
+    </message>
+    <message>
+        <source>File Management</source>
+        <translation>Gestión de archivos</translation>
+    </message>
+    <message>
+        <source>Updates &amp; File Associations</source>
+        <translation>Actualizaciones y asociaciones de archivos</translation>
+    </message>
+    <message>
+        <source>Default Image Viewer</source>
+        <translation>Visor de imágenes predeterminado</translation>
+    </message>
+    <message>
+        <source>Files &amp; Clipboard</source>
+        <translation>Archivos y portapapeles</translation>
+    </message>
+    <message>
+        <source>Navigation</source>
+        <translation>Navegación</translation>
+    </message>
+    <message>
+        <source>View &amp; Comparison</source>
+        <translation>Vista y comparación</translation>
+    </message>
+    <message>
+        <source>Animation &amp; Slideshow</source>
+        <translation>Animación y presentación</translation>
+    </message>
+    <message>
+        <source>App &amp; Windows</source>
+        <translation>Aplicación y ventanas</translation>
+    </message>
+    <message>
+        <source>Double-click a shortcut to edit it.</source>
+        <translation>Haz doble clic en un atajo para editarlo.</translation>
+    </message>
+    <message>
+        <source>Edit…</source>
+        <translation>Editar…</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
@@ -1462,6 +1518,14 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
     <message>
         <source>&quot;%1&quot; is already bound to &quot;%2&quot;</source>
         <translation>«%1» ya está asociado a «%2»</translation>
+    </message>
+    <message>
+        <source>Press the keys to assign to this action.</source>
+        <translation>Pulsa las teclas que quieras asignar a esta acción.</translation>
+    </message>
+    <message>
+        <source>Edit Shortcut for %1</source>
+        <translation>Editar el atajo de %1</translation>
     </message>
 </context>
 <context>

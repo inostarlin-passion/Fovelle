@@ -437,18 +437,17 @@ def static_source_contract(repo: Path) -> dict[str, Any]:
     cmake = (repo / "tests/CMakeLists.txt").read_text(encoding="utf-8")
 
     update_start = options.index("void QVOptionsDialog::updateShortcutsTable()")
-    update_end = options.index("void QVOptionsDialog::shortcutCellDoubleClicked", update_start)
+    update_end = options.index("void QVOptionsDialog::editShortcut", update_start)
     update_body = options[update_start:update_end]
     checks = {
-        "shortcuts_column_is_stretch": "setSectionResizeMode(1, QHeaderView::Stretch)" in options,
-        "last_section_is_stretched": "setStretchLastSection(true)" in options,
+        "shortcuts_column_is_stretch": "horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch)" in options,
         "primary_binding_only": "seqList.constFirst().toString(QKeySequence::PortableText)" in manager,
         "display_converts_each_item": "fromString(shortcut, QKeySequence::PortableText)" in manager,
         "edit_does_not_remeasure_page": "updateNaturalPageSizes()" not in update_body,
         "escape_filter_declared": "bool eventFilter(QObject *watched, QEvent *event) override;" in shortcut_header,
         "escape_filter_installed_and_removed": "installEventFilter(this)" in shortcut_dialog and "removeEventFilter(this)" in shortcut_dialog,
         "escape_calls_reject": "keyEvent->key() == Qt::Key_Escape" in shortcut_dialog and "reject();" in shortcut_dialog,
-        "double_click_connection_retained": "cellDoubleClicked, this, &QVOptionsDialog::shortcutCellDoubleClicked" in options,
+        "double_click_connection_retained": "cellDoubleClicked, this" in options and "editShortcut(row);" in options,
         "focused_cases_declared": all(name in tests for name in (
             "testPrimaryStandardShortcutDoesNotExposeActionName",
             "testShortcutsColumnFillsRemainingWidth",

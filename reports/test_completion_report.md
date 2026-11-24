@@ -1,3 +1,39 @@
+# macOS 设置窗口重构测试完成报告
+
+2026-11-25 在 Apple M3 Pro、macOS 27.0.1、Qt 6.12.0、Cocoa 和 Release 构建下完成验证。默认 CTest **12/12 通过**，耗时 94.85 秒。 [技术设计](technical_design_document.md) · [验收规范](test_case_specification.md) · [完整回归日志](../build-thumbnail-release/test-results/settings-redesign/ctest.log)
+
+## 验收结果
+
+| 编号 | 结果 | 证据 |
+| --- | --- | --- |
+| UI01 | 通过 | 从实际 AppKit 工具栏读到三个可见分段的标签和图标。发送分段动作能选中 Mouse & Trackpad 和 General。 [设置专项](../build-thumbnail-release/test-results/settings-redesign/complete-layout.log) |
+| UI02 | 通过 | 五种语言均以 512 pt 客户区宽度切换面板，各页高度随内容变化，无水平滚动。生产应用探针报告三个面板共用 468 pt 内容区。 [设置专项](../build-thumbnail-release/test-results/settings-redesign/complete-layout.log) · [生产应用探针](../build-thumbnail-release/test-results/settings-redesign/system.log) |
+| UI03 | 通过 | 验证五组的顺序、控件归属、原始设置值与次要文件关联按钮状态。 [设置专项](../build-thumbnail-release/test-results/settings-redesign/complete-layout.log) · [功能回归](../build-thumbnail-release/test-results/settings-redesign/complete-feature.log) |
+| UI04 | 通过 | 三组共 10 个下拉框等宽、右缘对齐，组内采用统一行距。西班牙语长选项参与页内下拉框宽度测量。 [设置专项](../build-thumbnail-release/test-results/settings-redesign/complete-layout.log) |
+| UI05 | 通过 | 两列表格的五个分类标题不可选择，每个动作行映射到正确编辑器，显示 macOS 原生快捷键符号。双击和按钮入口均通过。 [快捷键回归](../build-thumbnail-release/test-results/settings-redesign/complete-shortcuts.log) |
+| UI06 | 通过 | 录入已占用快捷键时显示冲突并禁止保存。恢复当前动作默认值后可确认保存，取消和 Escape 流程通过。 [快捷键回归](../build-thumbnail-release/test-results/settings-redesign/complete-shortcuts.log) |
+| UI07 | 通过 | 审阅三页在 Aqua 和 Dark Aqua 下的六张实际窗口截图，核对标题、对齐、对比度、滚动区域和复选标记。 [外观验证](../build-thumbnail-release/test-results/settings-redesign/complete-layout.log) |
+| UI08 | 通过 | 应用与 QtTest Release 构建、格式、源码检查、四个非英语目录新增文案与默认 CTest 通过。 [构建日志](../build-thumbnail-release/test-results/settings-redesign/build-complete.log) · [完整回归日志](../build-thumbnail-release/test-results/settings-redesign/ctest.log) |
+| UI09 | 通过 | 从主窗口打开设置时，第一帧与主窗口居中。设置保持非模态原生父子关系，切换面板不把焦点转移到外观下拉框。 [窗口回归](../build-thumbnail-release/test-results/settings-redesign/complete-window.log) |
+
+## 真实窗口截图
+
+截图来自 2× Retina。三个面板的原生窗口宽均为 512 pt。截图中的 General、Shortcuts、Mouse & Trackpad 高度分别为 584、472、452 pt，包含工具栏。
+
+| 面板 | 浅色 | 深色 |
+| --- | --- | --- |
+| General | [截图](../build-thumbnail-release/test-results/settings-redesign/screenshots/general-light.png) | [截图](../build-thumbnail-release/test-results/settings-redesign/screenshots/general-dark.png) |
+| Shortcuts | [截图](../build-thumbnail-release/test-results/settings-redesign/screenshots/shortcuts-light.png) | [截图](../build-thumbnail-release/test-results/settings-redesign/screenshots/shortcuts-dark.png) |
+| Mouse & Trackpad | [截图](../build-thumbnail-release/test-results/settings-redesign/screenshots/mouse-trackpad-light.png) | [截图](../build-thumbnail-release/test-results/settings-redesign/screenshots/mouse-trackpad-dark.png) |
+
+## 回溯与验证边界
+
+视觉与回归测试发现紧凑工具栏会省略普通工具栏项的标签、Cocoa 布局边距会使混合控件偏移，以及工具栏挂载时原生窗口会报告临时内容尺寸。最终使用 AppKit 分段控件显式显示名称与图标，按同一页最宽的本地化选择项定宽，并用固定客户区加原生边距计算首次居中位置。 [早期布局结果](../build-thumbnail-release/test-results/settings-redesign/focused.log) · [早期定位日志](../build-thumbnail-release/test-results/settings-redesign/geometry-debug.log) · [最终回归](../build-thumbnail-release/test-results/settings-redesign/complete-window.log)
+
+项目最低部署目标为 macOS 15.0。已核对所用 AppKit 接口的可用性，实际渲染覆盖 macOS 27.0.1 和主机当前系统强调色。macOS 15 实机外观与其他系统强调色仍待独立验证。本机 QtSvg 依赖构建于 macOS 27，链接器为 macOS 15 部署目标给出版本差异提示。 [构建日志](../build-thumbnail-release/test-results/settings-redesign/build-complete.log)
+
+---
+
 # 移除双图对比加载预算的测试完成报告
 
 2026-11-25 在 Apple M3 Pro、36 GiB 统一内存、macOS 27.0.1、Cocoa、Qt 6.12.0 上验证 Release 构建。 [技术设计](technical_design_document.md) · [测试规范](test_case_specification.md)

@@ -52,9 +52,9 @@ protected:
                      bool makeConnection = false);
     void syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key, bool defaults = false,
                            bool makeConnection = false);
-    void syncShortcuts(bool defaults = false);
+    void syncShortcuts();
     void updateShortcutsTable();
-    void configureGeneralPage();
+    void editShortcut(int row);
     void updateNaturalPageSizes();
     void resizeForCategory(int categoryIndex);
     void finishCategoryTransition();
@@ -72,8 +72,6 @@ protected:
     const Ui::ComboBoxItems<Qv::ViewportScrollAction> mapViewportScrollAction();
 
 private slots:
-    void shortcutCellDoubleClicked(int row, int column);
-
     void languageComboBoxCurrentIndexChanged(int index);
 
     void associateSupportedFormats();
@@ -96,11 +94,7 @@ private:
 
     QPropertyAnimation *categorySizeAnimation{ nullptr };
 
-    QVector<int> settingsTabWidths;
-
-    int settingsDialogWidth{ 0 };
-
-    int categoryTargetWidth{ 0 };
+    QVector<int> pageHeights;
 
     int categoryTargetHeight{ 0 };
 };

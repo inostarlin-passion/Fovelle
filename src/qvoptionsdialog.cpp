@@ -11,7 +11,7 @@
 #include <QWindow>
 #include <QSignalBlocker>
 #include <QTimer>
-#include <QFormLayout>
+#include <QGridLayout>
 #include <QTabBar>
 #include <QPushButton>
 #include <QScrollArea>
@@ -20,455 +20,92 @@
 #include <QEasingCurve>
 #include <QPropertyAnimation>
 #include <QScrollBar>
-#include <QStyleOptionViewItem>
 #include <QStyle>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QAbstractButton>
 #include <QLabel>
-#include <QGroupBox>
+#include <QScreen>
 
 namespace {
-constexpr Qt::Alignment SettingsLabelAlignment = Qt::AlignRight | Qt::AlignTrailing;
-constexpr Qt::Alignment SettingsValueAlignment = Qt::AlignLeft | Qt::AlignTop;
-constexpr Qt::Alignment SettingsLabelContentAlignment =
-        Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
+constexpr int SettingsWidth = 512;
+constexpr int SettingsRowHeight = 24;
+constexpr int SettingsMinimumPopupWidth = 176;
 
-struct SettingsLayoutMetrics
+void configureSeparator(QFrame *separator)
 {
-    int maximumIntraGroupSpacing{ 0 };
-    int groupSpacing{ 0 };
-};
-
-bool layoutItemIsVisible(QLayoutItem *item)
-{
-    if (!item)
-        return false;
-    if (auto *widget = item->widget())
-        return !widget->isHidden();
-    if (auto *layout = item->layout()) {
-        for (int index = 0; index < layout->count(); ++index) {
-            if (layoutItemIsVisible(layout->itemAt(index)))
-                return true;
-        }
-    }
-    return false;
+    separator->setFrameShape(QFrame::NoFrame);
+    separator->setBackgroundRole(QPalette::Window);
+    separator->setAutoFillBackground(true);
+    separator->setFixedHeight(1);
 }
 
-QSizePolicy::ControlTypes layoutItemControlTypes(QLayoutItem *item)
+void configureForms(QWidget *page)
 {
-    if (!item)
-        return QSizePolicy::DefaultType;
-    if (auto *widget = item->widget())
-        return widget->sizePolicy().controlType();
-    return item->controlTypes();
-}
-
-QList<QLayoutItem *> visibleRowItems(QFormLayout *layout, const int row)
-{
-    QList<QLayoutItem *> items;
-    for (const auto role :
-         { QFormLayout::LabelRole, QFormLayout::FieldRole, QFormLayout::SpanningRole }) {
-        auto *item = layout->itemAt(row, role);
-        if (layoutItemIsVisible(item))
-            items.append(item);
-    }
-    return items;
-}
-
-int resolvedStyleSpacing(QWidget *context, const QSizePolicy::ControlTypes first,
-                         const QSizePolicy::ControlTypes second)
-{
-    if (!context || !context->style())
-        return 0;
-
-    int spacing =
-            context->style()->combinedLayoutSpacing(first, second, Qt::Vertical, nullptr, context);
-    if (spacing < 0)
-        spacing = context->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, nullptr, context);
-    return qMax(0, spacing);
-}
-
-int maximumIntraGroupSpacing(QWidget *page)
-{
-    if (!page)
-        return 0;
-
-    int maximumSpacing = 0;
-    for (auto *layout : page->findChildren<QFormLayout *>()) {
-        QList<QLayoutItem *> previousItems;
-        for (int row = 0; row < layout->rowCount(); ++row) {
-            const QList<QLayoutItem *> currentItems = visibleRowItems(layout, row);
-            if (currentItems.isEmpty())
-                continue;
-
-            for (auto *previous : previousItems) {
-                for (auto *current : currentItems) {
-                    maximumSpacing =
-                            qMax(maximumSpacing,
-                                 resolvedStyleSpacing(page, layoutItemControlTypes(previous),
-                                                      layoutItemControlTypes(current)));
-                }
-            }
-            previousItems = currentItems;
-        }
-    }
-    return maximumSpacing;
-}
-
-SettingsLayoutMetrics settingsLayoutMetrics(QWidget *generalPage, QWidget *mousePage)
-{
-    SettingsLayoutMetrics metrics;
-    metrics.maximumIntraGroupSpacing =
-            qMax(maximumIntraGroupSpacing(generalPage), maximumIntraGroupSpacing(mousePage));
-
-    QWidget *styleContext = generalPage ? generalPage : mousePage;
-    const int nativeGroupSpacing =
-            resolvedStyleSpacing(styleContext, QSizePolicy::GroupBox, QSizePolicy::GroupBox);
-    metrics.groupSpacing = qMax(nativeGroupSpacing, metrics.maximumIntraGroupSpacing + 1);
-    return metrics;
-}
-
-void configureSettingsForm(QFormLayout *layout)
-{
-    if (!layout)
-        return;
-
-    layout->setVerticalSpacing(-1);
-    layout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
-    layout->setRowWrapPolicy(QFormLayout::DontWrapRows);
-    layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
-    layout->setLabelAlignment(SettingsLabelAlignment);
-}
-
-void configureSettingsGroupsLayout(QWidget *page, const int groupSpacing,
-                                   const int maximumIntraGroupSpacing)
-{
-    if (!page)
-        return;
-
-    auto *layout = qobject_cast<QVBoxLayout *>(page->layout());
-    if (!layout)
-        return;
-
-    layout->setSpacing(groupSpacing);
-    layout->invalidate();
-    layout->activate();
-    page->setProperty("settingsGroupSpacing", groupSpacing);
-    page->setProperty("settingsIntraGroupMaxSpacing", maximumIntraGroupSpacing);
-    page->setProperty("settingsRowSpacing", -1);
-    page->setProperty("settingsHasBottomStretch", true);
-}
-
-void setSettingsGroupFixedHeight(QWidget *group)
-{
-    if (!group)
-        return;
-
-    auto policy = group->sizePolicy();
-    policy.setVerticalPolicy(QSizePolicy::Fixed);
-    group->setSizePolicy(policy);
-}
-
-int formLabelColumnWidth(QWidget *page)
-{
-    if (!page)
-        return 0;
-
-    const auto layouts = page->findChildren<QFormLayout *>();
-    int labelColumnWidth = 0;
-    for (auto *layout : layouts) {
-        for (int row = 0; row < layout->rowCount(); ++row) {
-            auto *item = layout->itemAt(row, QFormLayout::LabelRole);
-            if (item && item->widget())
-                labelColumnWidth = qMax(labelColumnWidth, item->widget()->sizeHint().width());
-        }
-    }
-    return labelColumnWidth;
-}
-
-void clearFormLabelColumnWidths(QWidget *page)
-{
-    if (!page)
-        return;
-
-    const auto layouts = page->findChildren<QFormLayout *>();
-    for (auto *layout : layouts) {
-        for (int row = 0; row < layout->rowCount(); ++row) {
-            auto *item = layout->itemAt(row, QFormLayout::LabelRole);
-            if (item && item->widget()) {
-                item->widget()->setMinimumWidth(0);
-                item->widget()->setMinimumHeight(0);
-                item->widget()->setMaximumWidth(QWIDGETSIZE_MAX);
+    for (auto *form : page->findChildren<QGridLayout *>()) {
+        for (int row = 0; row < form->rowCount(); ++row) {
+            form->setRowMinimumHeight(row, SettingsRowHeight);
+            auto *label = qobject_cast<QLabel *>(form->itemAtPosition(row, 0)->widget());
+            auto *field = form->itemAtPosition(row, 1)->widget();
+            // AppKit's per-control layout insets otherwise shift the trailing
+            // edge of a whole grid when a different type of control is added.
+            label->setAttribute(Qt::WA_LayoutUsesWidgetRect);
+            field->setAttribute(Qt::WA_LayoutUsesWidgetRect);
+            if (qobject_cast<QComboBox *>(field))
+                field->setAttribute(Qt::WA_MacSmallSize);
+            label->setBuddy(field);
+            label->setToolTip(field->toolTip());
+            if (qobject_cast<QCheckBox *>(field)) {
+                // A textless Cocoa checkbox needs room for the indicator and
+                // its drawing insets when laid out using the widget rect.
+                field->setMinimumSize(
+                        QSize(SettingsRowHeight, SettingsRowHeight).expandedTo(field->sizeHint()));
+                field->setAccessibleName(label->text().remove(QLatin1Char('&')));
             }
         }
     }
-}
-
-int naturalFieldOnlyFormWidth(QFormLayout *layout)
-{
-    if (!layout)
-        return 0;
-
-    int widestValue = 0;
-    for (int row = 0; row < layout->rowCount(); ++row) {
-        auto *item = layout->itemAt(row, QFormLayout::FieldRole);
-        if (!item)
-            continue;
-        if (item->widget())
-            widestValue = qMax(widestValue, item->widget()->sizeHint().width());
-        else
-            widestValue = qMax(widestValue, item->sizeHint().width());
-    }
-    const QMargins margins = layout->contentsMargins();
-    return margins.left() + layout->horizontalSpacing() + widestValue + margins.right();
-}
-
-QSize naturalLayoutSize(QWidget *widget)
-{
-    if (!widget)
-        return { };
-
-    widget->setMinimumSize(0, 0);
-    if (auto *layout = widget->layout()) {
-        layout->invalidate();
-        layout->activate();
-        return layout->sizeHint().expandedTo(layout->minimumSize());
-    }
-    return widget->sizeHint().expandedTo(widget->minimumSizeHint());
-}
-
-int naturalTableColumnWidth(QTableWidget *table, const int column)
-{
-    auto *header = table->horizontalHeader();
-    int width = qMax(header->minimumSectionSize(), header->sectionSizeHint(column));
-    QStyleOptionViewItem option;
-    option.initFrom(table->viewport());
-    for (int row = 0; row < table->rowCount(); ++row) {
-        const QModelIndex index = table->model()->index(row, column);
-        width = qMax(width, table->itemDelegate()->sizeHint(option, index).width());
-    }
-    return width;
-}
-
-void alignFormLayouts(QWidget *page, const int labelColumnWidth)
-{
-    if (!page || labelColumnWidth <= 0)
-        return;
-
-    const auto layouts = page->findChildren<QFormLayout *>();
-
-    for (auto *layout : layouts) {
-        // Each translated form used to center its own size hint.  That made
-        // every group choose a different field-column origin as label widths
-        // changed between languages. A shared label column and left-aligned
-        // form origin keep General and Mouse controls on one vertical grid.
-        layout->setLabelAlignment(SettingsLabelAlignment);
-        layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
-        layout->setRowWrapPolicy(QFormLayout::DontWrapRows);
-        if (layout->objectName() == QStringLiteral("settingsGroup4Layout")) {
-            // Group 4 contains only value-only rows, so QFormLayout has no
-            // label item from which to derive the shared field-column origin.
-            // Reserve that column explicitly as the form's left inset.
-            QMargins margins = layout->contentsMargins();
-            margins.setLeft(labelColumnWidth);
-            layout->setContentsMargins(margins);
-        }
-        for (int row = 0; row < layout->rowCount(); ++row) {
-            auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
-            auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
-            auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
-            if (labelItem && labelItem->widget()) {
-                // A fixed shared label width makes the right edge of the
-                // translated label column an invariant of the page rather
-                // than an emergent result of each form's size hint.
-                labelItem->widget()->setFixedWidth(labelColumnWidth);
-                if (auto *label = qobject_cast<QLabel *>(labelItem->widget())) {
-                    label->setAlignment(SettingsLabelContentAlignment);
-                    layout->setAlignment(label, Qt::AlignTop);
-                }
-            }
-
-            const auto isAssociationButton = [](QLayoutItem *item) {
-                return item && item->widget()
-                        && item->widget()->objectName() == QStringLiteral("associateFormatsButton");
-            };
-            auto alignValueItem = [layout](QLayoutItem *item) {
-                if (!item)
-                    return;
-                if (item->widget())
-                    layout->setAlignment(item->widget(), SettingsValueAlignment);
-                else if (item->layout())
-                    layout->setAlignment(item->layout(), SettingsValueAlignment);
-            };
-            if (isAssociationButton(fieldItem)) {
-                layout->setAlignment(fieldItem->widget(), Qt::AlignHCenter | Qt::AlignVCenter);
-            } else {
-                alignValueItem(fieldItem);
-            }
-
-            // A spanning row without a label is itself the value/control. The
-            // association button is deliberately centered as an action, while
-            // ordinary value-only rows belong to the field column.
-            if (isAssociationButton(spanningItem)) {
-                layout->setAlignment(spanningItem->widget(), Qt::AlignHCenter | Qt::AlignVCenter);
-            } else {
-                alignValueItem(spanningItem);
-            }
-        }
-
-        if (layout->objectName() == QStringLiteral("settingsGroup4Layout")) {
-            if (auto *group = layout->parentWidget())
-                group->setMinimumWidth(naturalFieldOnlyFormWidth(layout));
-        }
-        layout->invalidate();
-        layout->activate();
-    }
-
-    page->setProperty("settingsAlignedLabelColumnWidth", labelColumnWidth);
-    page->setProperty("settingsLabelAlignment", int(SettingsLabelAlignment));
-    page->setProperty("settingsValueAlignment", int(SettingsValueAlignment));
-}
-
-void normalizeNamedRows(QWidget *page)
-{
-    if (!page)
-        return;
-
-    for (auto *layout : page->findChildren<QFormLayout *>()) {
-        for (int row = 0; row < layout->rowCount(); ++row) {
-            auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
-            auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
-            auto *label = labelItem ? qobject_cast<QLabel *>(labelItem->widget()) : nullptr;
-            QWidget *valueHost = fieldItem ? fieldItem->widget() : nullptr;
-            if (!valueHost)
-                continue;
-
-            if (!label) {
-                valueHost->setMinimumHeight(0);
-                valueHost->setMaximumHeight(QWIDGETSIZE_MAX);
-                valueHost->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
-                valueHost->setFixedHeight(valueHost->sizeHint().height());
-                layout->setAlignment(valueHost, SettingsValueAlignment);
-                continue;
-            }
-
-            // Remove a previous normalization before measuring the natural
-            // post-polish heights. This makes the operation safe after a
-            // font, style, palette, or translation change.
-            label->setMinimumHeight(0);
-            label->setMaximumHeight(QWIDGETSIZE_MAX);
-            valueHost->setMinimumHeight(0);
-            valueHost->setMaximumHeight(QWIDGETSIZE_MAX);
-            label->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
-            valueHost->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
-            label->setAlignment(SettingsLabelContentAlignment);
-
-            const int rowHeight = qMax(label->sizeHint().height(), valueHost->sizeHint().height());
-            label->setFixedHeight(rowHeight);
-            valueHost->setFixedHeight(rowHeight);
-            layout->setAlignment(label, Qt::AlignTop);
-            layout->setAlignment(valueHost, SettingsValueAlignment);
+    for (auto *label : page->findChildren<QLabel *>()) {
+        if (label->objectName().endsWith(QStringLiteral("Heading"))) {
+            QFont font = label->font();
+            font.setWeight(QFont::DemiBold);
+            label->setFont(font);
         }
     }
-}
-
-QWidget *createSettingsGroup(QWidget *parent, const int groupIndex, QFormLayout **formLayout)
-{
-    auto *group = new QWidget(parent);
-    group->setObjectName(QStringLiteral("settingsGroup%1").arg(groupIndex));
-    group->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    group->setProperty("settingsGroupIndex", groupIndex);
-
-    auto *layout = new QFormLayout(group);
-    layout->setObjectName(QStringLiteral("settingsGroup%1Layout").arg(groupIndex));
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setHorizontalSpacing(12);
-    configureSettingsForm(layout);
-    *formLayout = layout;
-    return group;
-}
-
-void discardLayoutItems(QLayout *layout)
-{
-    if (!layout)
-        return;
-
-    while (layout->count() > 0) {
-        QLayoutItem *item = layout->takeAt(layout->count() - 1);
-        if (!item)
-            break;
-        // Deleting a QWidgetItem does not delete the widget. The existing
-        // controls are immediately reparented into their semantic groups.
-        delete item;
-    }
-    delete layout;
-}
-
-void setNaturalControlWidths(QWidget *page)
-{
-    if (!page)
-        return;
-
-    const auto controls = page->findChildren<QWidget *>();
-    for (auto *control : controls) {
-        if (control->objectName() == QStringLiteral("menubarCheckbox"))
-            continue;
-
-        if (control->objectName() == QStringLiteral("associateFormatsButton")) {
-            // The association action intentionally keeps the exact native
-            // QPushButton size hint; do not turn its width into a second
-            // sizing source while measuring the page.
-            control->setMinimumSize(0, 0);
-            continue;
-        }
-
-        if (!qobject_cast<QAbstractButton *>(control) && !qobject_cast<QComboBox *>(control)
-            && !qobject_cast<QAbstractSpinBox *>(control))
-            continue;
-
-        if (auto *comboBox = qobject_cast<QComboBox *>(control))
-            comboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-        control->setMinimumWidth(qMax(control->minimumWidth(), control->sizeHint().width()));
-        auto sizePolicy = control->sizePolicy();
-        sizePolicy.setHorizontalPolicy(QSizePolicy::Fixed);
-        control->setSizePolicy(sizePolicy);
+    for (auto *separator : page->findChildren<QFrame *>()) {
+        if (separator->frameShape() == QFrame::HLine)
+            configureSeparator(separator);
     }
 }
 
-void addValueOnlyRow(QFormLayout *layout, QWidget *value)
+void measureForm(QScrollArea *scroll, int pageWidth)
 {
-    if (!layout || !value)
-        return;
+    auto *content = scroll->widget();
+    auto *layout = content->layout();
+    const auto popups = content->findChildren<QComboBox *>();
+    int popupWidth = SettingsMinimumPopupWidth;
+    for (auto *popup : popups) {
+        popup->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+        popupWidth =
+                qMax(popupWidth, popup->sizeHint().expandedTo(popup->minimumSizeHint()).width());
+    }
+    for (auto *popup : popups)
+        popup->setFixedWidth(popupWidth);
 
-    // QFormLayout::addRow(widget) creates a SpanningRole item. These controls
-    // have no separate label, but their values still belong in the shared
-    // field column, so place them explicitly in FieldRole.
-    layout->setWidget(layout->rowCount(), QFormLayout::FieldRole, value);
+    // Reserve the trailing inset in both scroll areas, including when the
+    // user's scrollbar preference makes a vertical scrollbar occupy space.
+    const int scrollbarWidth = scroll->style()->pixelMetric(QStyle::PM_ScrollBarExtent);
+    const int formWidth = pageWidth - qMax(0, scrollbarWidth);
+    layout->setAlignment(Qt::AlignTop);
+    content->setMinimumHeight(
+            qMax(layout->minimumSize().height(), layout->heightForWidth(formWidth)));
 }
 
-int naturalControlWidth(QWidget *page)
+int shortcutIndex(const QTableWidget *table, const int row)
 {
-    if (!page)
-        return 0;
-
-    int width = 0;
-    for (auto *control : page->findChildren<QWidget *>()) {
-        if (control->objectName() == QStringLiteral("menubarCheckbox"))
-            continue;
-
-        if (qobject_cast<QAbstractButton *>(control) || qobject_cast<QComboBox *>(control)
-            || qobject_cast<QAbstractSpinBox *>(control))
-            width = qMax(width, control->sizeHint().width());
-    }
-
-    for (auto *layout : page->findChildren<QFormLayout *>()) {
-        if (layout->objectName() != QStringLiteral("settingsGroup4Layout"))
-            continue;
-
-        width = qMax(width, naturalFieldOnlyFormWidth(layout));
-    }
-    return width;
+    const auto *item = table->item(row, 0);
+    if (!item || !item->data(Qt::UserRole).isValid())
+        return -1;
+    return item->data(Qt::UserRole).toInt();
 }
 } // namespace
 
@@ -476,7 +113,30 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
 {
     ui->setupUi(this);
 
-    configureGeneralPage();
+    ui->stackedWidget->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+    for (auto *scroll : { ui->generalScrollArea, ui->mouseScrollArea }) {
+        scroll->viewport()->setBackgroundRole(QPalette::Window);
+        scroll->widget()->setAutoFillBackground(false);
+        configureForms(scroll->widget());
+    }
+
+    ui->associateFormatsButton->setAutoDefault(false);
+    ui->associateFormatsButton->setAttribute(Qt::WA_MacSmallSize);
+    ui->editShortcutButton->setAutoDefault(false);
+    ui->editShortcutButton->setEnabled(false);
+    ui->editShortcutButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    ui->shortcutsFooter->setStretch(0, 1);
+    configureSeparator(ui->shortcutFooterSeparator);
+
+    auto *table = ui->shortcutsTable;
+    table->setWordWrap(false);
+    table->setTabKeyNavigation(false);
+    table->horizontalHeaderItem(0)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    table->horizontalHeaderItem(1)->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    table->setTextElideMode(Qt::ElideRight);
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+    table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
@@ -484,15 +144,14 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
     setProperty("settingsVisibleShortcutRows", ShortcutsVisibleRows);
     setProperty("settingsCategoryTransitionDuration", SettingsCategoryTransitionDuration);
     setProperty("settingsCategoryTransitionActive", false);
-    setProperty("settingsAdaptiveTabWidths", true);
 
     categorySizeAnimation = new QPropertyAnimation(this, "settingsAnimatedSize", this);
     categorySizeAnimation->setObjectName(QStringLiteral("settingsCategorySizeAnimation"));
     categorySizeAnimation->setDuration(SettingsCategoryTransitionDuration);
     categorySizeAnimation->setEasingCurve(QEasingCurve::InOutCubic);
     connect(categorySizeAnimation, &QPropertyAnimation::finished, this, [this]() {
-        if (categoryTargetWidth > 0 && categoryTargetHeight > 0)
-            setFixedSize(categoryTargetWidth, categoryTargetHeight);
+        if (categoryTargetHeight > 0)
+            setFixedSize(SettingsWidth, categoryTargetHeight);
         setProperty("settingsCategoryTransitionActive", false);
     });
 
@@ -515,8 +174,13 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
                 focused->clearFocus();
         });
     });
-    connect(ui->shortcutsTable, &QTableWidget::cellDoubleClicked, this,
-            &QVOptionsDialog::shortcutCellDoubleClicked);
+    connect(table, &QTableWidget::cellDoubleClicked, this,
+            [this](int row, int) { editShortcut(row); });
+    connect(table, &QTableWidget::currentCellChanged, this, [this, table](int row, int, int, int) {
+        ui->editShortcutButton->setEnabled(shortcutIndex(table, row) >= 0);
+    });
+    connect(ui->editShortcutButton, &QPushButton::clicked, this,
+            [this, table] { editShortcut(table->currentRow()); });
     connect(ui->langComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &QVOptionsDialog::languageComboBoxCurrentIndexChanged);
     connect(ui->associateFormatsButton, &QPushButton::clicked, this,
@@ -570,350 +234,70 @@ QVOptionsDialog::~QVOptionsDialog()
     delete ui;
 }
 
-void QVOptionsDialog::configureGeneralPage()
-{
-    auto *legacyGeneralWidget = ui->generalScrollArea->takeWidget();
-    auto *legacyMiscWidget = ui->miscScrollArea->takeWidget();
-    if (!legacyGeneralWidget || !legacyMiscWidget)
-        return;
-
-    // The .ui pages retain stable control names and signal wiring. Their
-    // legacy forms are replaced by one ordered General hierarchy so there is
-    // exactly one source of group spacing.
-    discardLayoutItems(ui->displayLayout);
-    discardLayoutItems(ui->miscLayout);
-
-    auto *generalContent = new QWidget(ui->generalScrollArea);
-    generalContent->setObjectName(QStringLiteral("generalContent"));
-    generalContent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    auto *contentLayout = new QVBoxLayout(generalContent);
-    contentLayout->setContentsMargins(0, 0, 0, 0);
-
-    auto *mouseContent = ui->mouseScrollArea->widget();
-    auto *mouseLayout =
-            mouseContent ? qobject_cast<QVBoxLayout *>(mouseContent->layout()) : nullptr;
-    if (mouseLayout) {
-        mouseLayout->setSpacing(0);
-        for (auto *form : mouseContent->findChildren<QFormLayout *>())
-            configureSettingsForm(form);
-        for (auto *group : mouseContent->findChildren<QGroupBox *>())
-            setSettingsGroupFixedHeight(group);
-        mouseLayout->addStretch(1);
-    }
-
-    QFormLayout *groupLayout = nullptr;
-    auto *group1 = createSettingsGroup(generalContent, 1, &groupLayout);
-    group1->setProperty("settingsItemObjectNames", QStringList{ QStringLiteral("langComboBox") });
-    groupLayout->addRow(ui->langComboLabel, ui->langComboBox);
-    contentLayout->addWidget(group1);
-
-    auto *group2 = createSettingsGroup(generalContent, 2, &groupLayout);
-    group2->setProperty("settingsItemObjectNames",
-                        QStringList{ QStringLiteral("themeComboBox"),
-                                     QStringLiteral("checkerboardBackgroundCheckbox") });
-    groupLayout->addRow(ui->appearanceLabel, ui->themeComboBox);
-    addValueOnlyRow(groupLayout, ui->checkerboardBackgroundCheckbox);
-    contentLayout->addWidget(group2);
-
-    auto *group3 = createSettingsGroup(generalContent, 3, &groupLayout);
-    group3->setProperty("settingsItemObjectNames",
-                        QStringList{ QStringLiteral("smoothScalingComboBox") });
-    groupLayout->addRow(ui->label_2, ui->smoothScalingComboBox);
-    contentLayout->addWidget(group3);
-
-    auto *group4 = createSettingsGroup(generalContent, 4, &groupLayout);
-    group4->setProperty("settingsItemObjectNames",
-                        QStringList{ QStringLiteral("reuseWindowCheckbox"),
-                                     QStringLiteral("smallImagesOneToOneCheckbox"),
-                                     QStringLiteral("keepZoomCheckbox") });
-    addValueOnlyRow(groupLayout, ui->reuseWindowCheckbox);
-    addValueOnlyRow(groupLayout, ui->smallImagesOneToOneCheckbox);
-    addValueOnlyRow(groupLayout, ui->keepZoomCheckbox);
-    contentLayout->addWidget(group4);
-
-    auto *group5 = createSettingsGroup(generalContent, 5, &groupLayout);
-    group5->setProperty("settingsItemObjectNames",
-                        QStringList{ QStringLiteral("slideshowDirectionComboBox"),
-                                     QStringLiteral("slideshowTimerSpinBox") });
-    groupLayout->addRow(ui->label_4, ui->slideshowDirectionComboBox);
-    groupLayout->addRow(ui->label_5, ui->slideshowTimerSpinBox);
-    contentLayout->addWidget(group5);
-
-    auto *group6 = createSettingsGroup(generalContent, 6, &groupLayout);
-    group6->setProperty("settingsItemObjectNames",
-                        QStringList{ QStringLiteral("afterDeletionComboBox"),
-                                     QStringLiteral("askDeleteCheckbox") });
-    groupLayout->addRow(ui->label_10, ui->afterDeletionComboBox);
-    addValueOnlyRow(groupLayout, ui->askDeleteCheckbox);
-    contentLayout->addWidget(group6);
-
-    auto *group7 = createSettingsGroup(generalContent, 7, &groupLayout);
-    group7->setProperty("settingsItemObjectNames",
-                        QStringList{ QStringLiteral("updateFrequencyComboBox") });
-    groupLayout->addRow(ui->updateFrequencyLabel, ui->updateFrequencyComboBox);
-    contentLayout->addWidget(group7);
-
-    auto *group8 = createSettingsGroup(generalContent, 8, &groupLayout);
-    group8->setProperty("settingsItemObjectNames",
-                        QStringList{ QStringLiteral("associateFormatsButton") });
-    // Keep the command as a direct native action row. Restoring the dialog's
-    // native default state also restores the pre-regression QMacStyle paint
-    // path and Return-key behavior.
-    ui->associateFormatsButton->setStyleSheet(QString());
-    ui->associateFormatsButton->setFlat(false);
-    ui->associateFormatsButton->setAutoDefault(true);
-    ui->associateFormatsButton->setDefault(true);
-    ui->associateFormatsButton->setMinimumSize(0, 0);
-    ui->associateFormatsButton->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
-    groupLayout->setWidget(0, QFormLayout::SpanningRole, ui->associateFormatsButton);
-    contentLayout->addWidget(group8);
-    contentLayout->addStretch(1);
-
-    // The hidden control is not a General option, but it must survive the
-    // removal of the legacy .ui page because syncSettings still owns it.
-    ui->menubarCheckbox->setParent(generalContent);
-    ui->menubarCheckbox->hide();
-
-    const SettingsLayoutMetrics metrics = settingsLayoutMetrics(generalContent, mouseContent);
-    configureSettingsGroupsLayout(generalContent, metrics.groupSpacing,
-                                  metrics.maximumIntraGroupSpacing);
-    configureSettingsGroupsLayout(mouseContent, metrics.groupSpacing,
-                                  metrics.maximumIntraGroupSpacing);
-
-    ui->generalScrollArea->setWidget(generalContent);
-    ui->generalScrollArea->setWidgetResizable(true);
-    ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    ui->mouseScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    ui->mouseScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    generalContent->adjustSize();
-
-    // The old page is no longer a category. Its content has been absorbed
-    // into General, so remove the page rather than leaving an inaccessible
-    // duplicate in the stacked widget.
-    delete legacyGeneralWidget;
-    delete legacyMiscWidget;
-    ui->stackedWidget->removeWidget(ui->miscScrollArea);
-    ui->miscScrollArea->deleteLater();
-}
-
 void QVOptionsDialog::updateNaturalPageSizes()
 {
-    auto *generalContent = ui->generalScrollArea->widget();
-    auto *mouseContent = ui->mouseScrollArea->widget();
-    if (!generalContent || !mouseContent)
-        return;
+    const QColor background = palette().color(QPalette::Window);
+    const QColor foreground = palette().color(QPalette::WindowText);
+    const QColor separatorColor =
+            QColor::fromRgbF((7 * background.redF() + foreground.redF()) / 8,
+                             (7 * background.greenF() + foreground.greenF()) / 8,
+                             (7 * background.blueF() + foreground.blueF()) / 8);
+    QPalette separatorPalette = palette();
+    separatorPalette.setColor(QPalette::Window, separatorColor);
+    for (auto *separator : ui->stackedWidget->findChildren<QFrame *>()) {
+        if (separator->objectName().endsWith(QStringLiteral("Separator")))
+            separator->setPalette(separatorPalette);
+    }
 
-    ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    ui->mouseScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    ui->mouseScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-
-    // Translation and the native modifier-key labels are final by this point.
-    // Rebuild one shared form column before measuring so the window width is a
-    // function of the current language rather than of the legacy .ui geometry.
-    // A spanning row (for example a long checkbox or the association button)
-    // can be wider than QFormLayout's aggregate size hint on macOS. Measure
-    // those controls explicitly so QScrollArea receives a truthful minimum
-    // width instead of clipping the localized text at the viewport edge.
-    setNaturalControlWidths(generalContent);
-    setNaturalControlWidths(mouseContent);
-    clearFormLabelColumnWidths(generalContent);
-    clearFormLabelColumnWidths(mouseContent);
-    generalContent->ensurePolished();
-    mouseContent->ensurePolished();
-    normalizeNamedRows(generalContent);
-    normalizeNamedRows(mouseContent);
-
-    const SettingsLayoutMetrics metrics = settingsLayoutMetrics(generalContent, mouseContent);
-    configureSettingsGroupsLayout(generalContent, metrics.groupSpacing,
-                                  metrics.maximumIntraGroupSpacing);
-    configureSettingsGroupsLayout(mouseContent, metrics.groupSpacing,
-                                  metrics.maximumIntraGroupSpacing);
-
-    const int labelColumnWidth =
-            qMax(formLabelColumnWidth(generalContent), formLabelColumnWidth(mouseContent));
-    alignFormLayouts(generalContent, labelColumnWidth);
-    alignFormLayouts(mouseContent, labelColumnWidth);
-
-    // QStackedWidget does not lay out never-selected pages. Activate each page
-    // while measuring, then restore the user's category, so starting directly
-    // on Mouse produces the same hints as reaching Mouse from General.
-    const int selectedPage = ui->stackedWidget->currentIndex();
-    ui->stackedWidget->setCurrentIndex(0);
-    QSize generalNaturalSize = naturalLayoutSize(generalContent);
-    generalNaturalSize.setWidth(
-            qMax(generalNaturalSize.width(), naturalControlWidth(generalContent)));
-    ui->stackedWidget->setCurrentIndex(2);
-    QSize mouseNaturalSize = naturalLayoutSize(mouseContent);
-    mouseNaturalSize.setWidth(qMax(mouseNaturalSize.width(), naturalControlWidth(mouseContent)));
-    generalContent->setMinimumSize(generalNaturalSize);
-    mouseContent->setMinimumSize(mouseNaturalSize);
-    generalContent->setProperty("settingsNaturalContentSize", generalNaturalSize);
-    mouseContent->setProperty("settingsNaturalContentSize", mouseNaturalSize);
+    const QMargins margins = ui->verticalLayout->contentsMargins();
+    const int pageWidth = SettingsWidth - margins.left() - margins.right();
+    measureForm(ui->generalScrollArea, pageWidth);
+    measureForm(ui->mouseScrollArea, pageWidth);
 
     auto *table = ui->shortcutsTable;
-    ui->stackedWidget->setCurrentIndex(1);
-    table->ensurePolished();
-    table->setWordWrap(false);
-    table->setMinimumWidth(0);
-    table->setMaximumWidth(QWIDGETSIZE_MAX);
-    auto *header = table->horizontalHeader();
-    header->setStretchLastSection(false);
-    // QHeaderView::ResizeToContents can defer its first resize until a hidden
-    // table is shown, which would make the pre-show window measurement use the
-    // legacy .ui section geometry. Query the header and delegate size hints
-    // synchronously and freeze them for the initial page measurement.
-    header->setSectionResizeMode(QHeaderView::Fixed);
-    const int actionColumnWidth = naturalTableColumnWidth(table, 0);
-    const int shortcutsColumnWidth = naturalTableColumnWidth(table, 1);
-    const int equalShortcutColumnWidth = qMax(actionColumnWidth, shortcutsColumnWidth);
-    header->resizeSection(0, equalShortcutColumnWidth);
-    header->resizeSection(1, equalShortcutColumnWidth);
-    table->resizeRowsToContents();
-    table->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    table->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-
-    int visibleRowsHeight = 0;
-    const int visibleRows = qMin(ShortcutsVisibleRows, table->rowCount());
-    for (int row = 0; row < visibleRows; ++row)
-        visibleRowsHeight += qMax(1, table->rowHeight(row));
+    const int rowHeight = qMax(20, table->fontMetrics().height() + 5);
+    table->verticalHeader()->setDefaultSectionSize(rowHeight);
+    const int headerHeight = table->horizontalHeader()->sizeHint().height();
     const int tableHeight =
-            table->horizontalHeader()->height() + visibleRowsHeight + 2 * table->frameWidth();
-    table->setFixedHeight(qMax(1, tableHeight));
+            headerHeight + rowHeight * qMin(ShortcutsVisibleRows, table->rowCount());
+    const int footerHeight = ui->shortcutsFooter->sizeHint().height()
+            + ui->shortcutFooterSeparator->height() + 2 * ui->shortcutsLayout->spacing();
+    pageHeights = { ui->generalContent->minimumHeight(), tableHeight + footerHeight,
+                    ui->mouse->minimumHeight() };
 
-    // At the 16-row height, the remaining rows require the vertical scrollbar.
-    // Account for its style-provided width and the frame directly. Resizing a
-    // hidden table to infer this value is not reliable because its parent
-    // layout still owns the table geometry until first presentation.
-    // Both columns share one natural width. An even total minimizes the
-    // remainder after Qt distributes the viewport between the two Stretch
-    // sections.
-    const int headerWidth = 2 * equalShortcutColumnWidth;
-    const int tableChromeWidth = 2 * table->frameWidth()
-            + (table->rowCount() > visibleRows ? table->verticalScrollBar()->sizeHint().width()
-                                               : 0);
-    const QMargins shortcutMargins = ui->shortcutsLayout->contentsMargins();
-    const int measuredShortcutsWidth =
-            shortcutMargins.left() + headerWidth + tableChromeWidth + shortcutMargins.right();
-    // QHeaderView distributes an odd viewport remainder between Stretch
-    // sections. Normalize the page width to minimize that remainder on Cocoa
-    // styles whose scrollbar metrics differ by one pixel between the hidden
-    // measurement pass and the visible table; the runtime contract accepts
-    // the resulting one-pixel integer rounding.
-    const int shortcutsNaturalWidth = measuredShortcutsWidth + measuredShortcutsWidth % 2;
-
-    const int generalNaturalWidth =
-            generalNaturalSize.width() + 2 * ui->generalScrollArea->frameWidth();
-    const int mouseNaturalWidth = mouseNaturalSize.width() + 2 * ui->mouseScrollArea->frameWidth();
-    settingsTabWidths = { generalNaturalWidth, shortcutsNaturalWidth, mouseNaturalWidth };
-
-    QVariantList tabWidths;
-    for (const int width : settingsTabWidths)
-        tabWidths.append(width);
-
-    const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
-    const int selectedCategory = qBound(0, selectedPage, settingsTabWidths.size() - 1);
-    const int selectedPageWidth = settingsTabWidths.value(selectedCategory);
-    ui->stackedWidget->setFixedWidth(selectedPageWidth);
-
-    // Both columns fill the Shortcuts page equally. The page width is derived
-    // from two equal natural widths above, so translated action names and
-    // shortcut values remain visible without horizontal scrolling.
-    header->setSectionResizeMode(0, QHeaderView::Stretch);
-    header->setSectionResizeMode(1, QHeaderView::Stretch);
-    header->setStretchLastSection(false);
-    setMinimumSize(0, 0);
-    setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-    settingsDialogWidth = qMax(1, selectedPageWidth + dialogMargins.left() + dialogMargins.right());
-    setProperty("settingsFixedWidth", settingsDialogWidth);
-    setProperty("settingsNaturalPageWidth", selectedPageWidth);
-    setProperty("settingsTabWidths", tabWidths);
-    setProperty("settingsTabWidth", selectedPageWidth);
-    setProperty("settingsGeneralNaturalWidth", generalNaturalWidth);
-    setProperty("settingsMouseNaturalWidth", mouseNaturalWidth);
-    setProperty("settingsShortcutsNaturalWidth", shortcutsNaturalWidth);
-    setProperty("settingsShortcutHeaderWidth", headerWidth);
-    setProperty("settingsShortcutColumnWidth", equalShortcutColumnWidth);
-    setProperty("settingsMaximumNaturalPageWidth",
-                qMax(generalNaturalWidth, qMax(mouseNaturalWidth, shortcutsNaturalWidth)));
-    ui->stackedWidget->setCurrentIndex(selectedPage);
-    // Exact content dimensions above make scrolling unnecessary. Keeping the
-    // bars off also avoids a transient overlay flash while Cocoa swaps panes.
-    ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    ui->mouseScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    ui->mouseScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setProperty("settingsTabWidths", QVariantList{ pageWidth, pageWidth, pageWidth });
+    setProperty("settingsFixedWidth", SettingsWidth);
+    setProperty("settingsTabWidth", pageWidth);
     pageMetricsReady = true;
 }
 
 void QVOptionsDialog::resizeForCategory(const int categoryIndex)
 {
-    if (!ui || !ui->stackedWidget || !pageMetricsReady)
+    if (!pageMetricsReady || categoryIndex < 0 || categoryIndex >= pageHeights.size())
         return;
 
-    if (categoryIndex < 0 || categoryIndex >= settingsTabWidths.size())
-        return;
-
-    QWidget *page = ui->stackedWidget->widget(categoryIndex);
-    if (!page)
-        return;
-
-    const int pageWidth = qMax(1, settingsTabWidths.at(categoryIndex));
-    ui->stackedWidget->setFixedWidth(pageWidth);
-
-    int pageHeight = 0;
-    if (categoryIndex == 0) {
-        auto *content = ui->generalScrollArea->widget();
-        pageHeight = content->minimumHeight() + 2 * ui->generalScrollArea->frameWidth();
-    } else if (categoryIndex == 1) {
-        auto *table = ui->shortcutsTable;
-        int visibleRowsHeight = 0;
-        const int visibleRows = qMin(ShortcutsVisibleRows, table->rowCount());
-        for (int row = 0; row < visibleRows; ++row)
-            visibleRowsHeight += qMax(1, table->rowHeight(row));
-        const int tableHeight =
-                table->horizontalHeader()->height() + visibleRowsHeight + 2 * table->frameWidth();
-        table->setFixedHeight(tableHeight);
-        const QMargins margins = ui->shortcutsLayout->contentsMargins();
-        pageHeight = margins.top() + tableHeight + margins.bottom();
-    } else {
-        auto *scrollArea = ui->mouseScrollArea;
-        auto *content = scrollArea->widget();
-        pageHeight = content->minimumHeight() + 2 * scrollArea->frameWidth();
+    const QMargins margins = ui->verticalLayout->contentsMargins();
+    const int contentHeight = pageHeights.at(categoryIndex);
+    int targetHeight = contentHeight + margins.top() + margins.bottom();
+    if (const auto *display = screen()) {
+        const int nativeChrome = qMax(0, frameGeometry().height() - height());
+        const int availableHeight = display->availableGeometry().height() - nativeChrome;
+        targetHeight = qMin(targetHeight, qMax(1, availableHeight - 20));
     }
-
-    const int currentWidth = width();
-    const int currentHeight = height();
-    pageHeight = qMax(1, pageHeight);
-    ui->stackedWidget->setFixedHeight(pageHeight);
-    const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
-    const int targetWidth = qMax(1, pageWidth + dialogMargins.left() + dialogMargins.right());
-    const int targetHeight = qMax(1, pageHeight + dialogMargins.top() + dialogMargins.bottom());
-    categoryTargetWidth = targetWidth;
     categoryTargetHeight = targetHeight;
-    settingsDialogWidth = targetWidth;
 
-    const bool shouldAnimate = isVisible()
-            && (currentWidth != targetWidth || currentHeight != targetHeight)
-            && categorySizeAnimation;
-    if (shouldAnimate) {
+    if (isVisible() && height() != targetHeight) {
         categorySizeAnimation->stop();
         setProperty("settingsCategoryTransitionActive", true);
-        categorySizeAnimation->setStartValue(QSize(currentWidth, currentHeight));
-        categorySizeAnimation->setEndValue(QSize(targetWidth, targetHeight));
+        categorySizeAnimation->setStartValue(QSize(SettingsWidth, height()));
+        categorySizeAnimation->setEndValue(QSize(SettingsWidth, targetHeight));
         categorySizeAnimation->start();
     } else {
-        if (categorySizeAnimation)
-            categorySizeAnimation->stop();
-        setFixedSize(targetWidth, targetHeight);
-        setProperty("settingsCategoryTransitionActive", false);
+        finishCategoryTransition();
     }
     setProperty("settingsCategoryIndex", categoryIndex);
-    setProperty("settingsTabWidth", pageWidth);
-    setProperty("settingsFixedWidth", targetWidth);
-    setProperty("settingsCategoryTargetWidth", targetWidth);
-    setProperty("settingsCategoryContentHeight", pageHeight);
+    setProperty("settingsCategoryTargetWidth", SettingsWidth);
+    setProperty("settingsCategoryContentHeight", contentHeight);
 }
 
 QSize QVOptionsDialog::settingsAnimatedSize() const
@@ -930,8 +314,8 @@ void QVOptionsDialog::finishCategoryTransition()
 {
     if (categorySizeAnimation)
         categorySizeAnimation->stop();
-    if (categoryTargetWidth > 0 && categoryTargetHeight > 0)
-        setFixedSize(categoryTargetWidth, categoryTargetHeight);
+    if (categoryTargetHeight > 0)
+        setFixedSize(SettingsWidth, categoryTargetHeight);
     setProperty("settingsCategoryTransitionActive", false);
 }
 
@@ -948,9 +332,8 @@ void QVOptionsDialog::prepareForDisplay()
         windowHandle()->setFlag(Qt::WindowStaysOnTopHint, qvApp->foundOnTopWindow());
     NativeDialogs::applyTheme(this);
     QVCocoaFunctions::configureSettingsToolbar(windowHandle(), ui->categoryTabs);
-    // The native toolbar changes the available content width. Re-measure once
-    // after it exists, while the dialog is still hidden, so the first frame
-    // uses the final natural height.
+    // Measure after AppKit installs the toolbar so the first frame includes
+    // its chrome when applying the display's available-height constraint.
     updateNaturalPageSizes();
     resizeForCategory(ui->categoryTabs->currentIndex());
     displayPrepared = true;
@@ -1144,64 +527,83 @@ void QVOptionsDialog::syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QSt
     }
 }
 
-void QVOptionsDialog::syncShortcuts(bool defaults)
+void QVOptionsDialog::syncShortcuts()
 {
-    qvApp->getShortcutManager().updateShortcuts();
+    auto &manager = qvApp->getShortcutManager();
+    manager.updateShortcuts();
 
+    const QHash<QString, QString> categoryStarts{
+        { QStringLiteral("open"), tr("Files & Clipboard") },
+        { QStringLiteral("firstfile"), tr("Navigation") },
+        { QStringLiteral("zoomin"), tr("View & Comparison") },
+        { QStringLiteral("saveframeas"), tr("Animation & Slideshow") },
+        { QStringLiteral("options"), tr("App & Windows") },
+    };
+
+    auto *table = ui->shortcutsTable;
+    table->clearSpans();
+    table->setRowCount(0);
     transientShortcuts.clear();
-    const auto &shortcutsList = qvApp->getShortcutManager().getShortcutsList();
-    ui->shortcutsTable->setRowCount(shortcutsList.length());
+    const auto &shortcuts = manager.getShortcutsList();
+    for (int index = 0; index < shortcuts.size(); ++index) {
+        const auto &shortcut = shortcuts.at(index);
+        if (const QString category = categoryStarts.value(shortcut.name); !category.isEmpty()) {
+            const int row = table->rowCount();
+            table->insertRow(row);
+            auto *heading = new QTableWidgetItem(category);
+            heading->setFlags(Qt::ItemIsEnabled);
+            QFont font = table->font();
+            font.setWeight(QFont::DemiBold);
+            heading->setFont(font);
+            table->setItem(row, 0, heading);
+            table->setSpan(row, 0, 1, 2);
+        }
 
-    for (int i = 0; i < shortcutsList.length(); i++) {
-        const ShortcutManager::SShortcut &shortcut = shortcutsList.value(i);
-
-        // Add shortcut to transient shortcut list
-        if (defaults)
-            transientShortcuts.append(shortcut.defaultShortcuts);
-        else
-            transientShortcuts.append(shortcut.shortcuts);
-
-        // Add shortcut to table widget
-        auto *nameItem = new QTableWidgetItem();
-        nameItem->setText(shortcut.readableName);
-        ui->shortcutsTable->setItem(i, 0, nameItem);
-
-        auto *shortcutsItem = new QTableWidgetItem();
-        shortcutsItem->setText(
-                ShortcutManager::stringListToReadableString(transientShortcuts.value(i)));
-        ui->shortcutsTable->setItem(i, 1, shortcutsItem);
+        const int row = table->rowCount();
+        table->insertRow(row);
+        auto *name = new QTableWidgetItem(shortcut.readableName);
+        name->setData(Qt::UserRole, index);
+        name->setToolTip(shortcut.readableName);
+        table->setItem(row, 0, name);
+        auto *keys = new QTableWidgetItem;
+        keys->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        table->setItem(row, 1, keys);
+        transientShortcuts.append(shortcut.shortcuts);
     }
     updateShortcutsTable();
 }
 
 void QVOptionsDialog::updateShortcutsTable()
 {
-    for (int i = 0; i < transientShortcuts.length(); i++) {
-        const QStringList &shortcuts = transientShortcuts.value(i);
-        ui->shortcutsTable->item(i, 1)->setText(
-                ShortcutManager::stringListToReadableString(shortcuts));
+    auto *table = ui->shortcutsTable;
+    for (int row = 0; row < table->rowCount(); ++row) {
+        const int index = shortcutIndex(table, row);
+        if (index < 0)
+            continue;
+        const QString text =
+                ShortcutManager::stringListToReadableString(transientShortcuts.at(index));
+        auto *item = table->item(row, 1);
+        item->setText(text);
+        item->setToolTip(text);
     }
-
-    // Page metrics are content-derived only during initial presentation. A
-    // shortcut edit changes a cell, not the settings window contract; doing a
-    // second natural-size pass here used to make the dialog width depend on
-    // the newly entered key sequence.
 }
 
-void QVOptionsDialog::shortcutCellDoubleClicked(int row, int column)
+void QVOptionsDialog::editShortcut(int row)
 {
-    Q_UNUSED(column)
-    auto getTransientShortcutCallback = [this](int index) {
-        return transientShortcuts.value(index);
+    const int index = shortcutIndex(ui->shortcutsTable, row);
+    if (index < 0)
+        return;
+
+    const auto getTransientShortcut = [this](int shortcutIndex) {
+        return transientShortcuts.value(shortcutIndex);
     };
-    auto *shortcutDialog = new QVShortcutDialog(row, getTransientShortcutCallback, this);
+    auto *shortcutDialog = new QVShortcutDialog(index, getTransientShortcut, this);
     connect(shortcutDialog, &QVShortcutDialog::shortcutsListChanged, this,
-            [this](int index, const QStringList &stringListShortcuts) {
-                transientShortcuts.replace(index, stringListShortcuts);
-                const auto &shortcut = qvApp->getShortcutManager().getShortcutsList().value(index);
+            [this](int index, const QStringList &values) {
+                transientShortcuts.replace(index, values);
+                const auto &shortcut = qvApp->getShortcutManager().getShortcutsList().at(index);
                 QSettings settings;
-                settings.setValue(QStringLiteral("shortcuts/") + shortcut.name,
-                                  stringListShortcuts);
+                settings.setValue(QStringLiteral("shortcuts/") + shortcut.name, values);
                 settings.sync();
                 qvApp->getShortcutManager().updateShortcuts();
                 updateShortcutsTable();
@@ -1220,7 +622,7 @@ void QVOptionsDialog::populateCategories(int selectedRow)
         ui->categoryTabs->removeTab(0);
     addItem(Qv::MaterialIcon::Tune, tr("General"));
     addItem(Qv::MaterialIcon::Keyboard, tr("Shortcuts"));
-    addItem(Qv::MaterialIcon::Mouse, tr("Mouse"));
+    addItem(Qv::MaterialIcon::Mouse, tr("Mouse & Trackpad"));
     const int safeRow = qBound(0, selectedRow, ui->categoryTabs->count() - 1);
     ui->categoryTabs->setCurrentIndex(safeRow);
     ui->stackedWidget->setCurrentIndex(safeRow);

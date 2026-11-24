@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
                     }
 
                     int tabCount = 0;
-                    bool adaptive = false;
+                    bool sharedWidth = false;
                     bool tabWidthsValid = false;
                     bool columnsEqual = false;
                     bool checkerboardRenamed = false;
@@ -153,12 +153,12 @@ int main(int argc, char *argv[])
                         auto *checkerboard = dialog->findChild<QCheckBox *>(
                                 QStringLiteral("checkerboardBackgroundCheckbox"));
                         tabCount = tabs ? tabs->count() : 0;
-                        adaptive = dialog->property("settingsAdaptiveTabWidths").toBool();
                         const QVariantList widths = dialog->property("settingsTabWidths").toList();
                         tabWidthsValid = widths.size() == tabCount;
-                        for (const QVariant &width : widths)
-                            tabWidthsValid = tabWidthsValid && width.toInt() > 0;
                         currentTabWidth = dialog->property("settingsTabWidth").toInt();
+                        for (const QVariant &width : widths)
+                            tabWidthsValid = tabWidthsValid && width.toInt() == currentTabWidth;
+                        sharedWidth = tabWidthsValid && dialog->width() == 512;
                         if (table) {
                             auto *header = table->horizontalHeader();
                             // Stretch sections are integer pixels; an odd
@@ -168,17 +168,19 @@ int main(int argc, char *argv[])
                                     && header->sectionSize(0) > 0;
                         }
                         checkerboardRenamed = checkerboard
-                                && !checkerboard->text().contains(
+                                && !checkerboard->accessibleName().isEmpty()
+                                && !checkerboard->accessibleName().contains(
                                         QStringLiteral("after opening image"), Qt::CaseInsensitive);
                     }
 
                     qInfo().noquote()
-                            << QStringLiteral("FOVELLE_SETTINGS_SYSTEM_PROBE tabs=%1 adaptive=%2 "
-                                              "tab_widths_valid=%3 current_tab_width=%4 "
-                                              "columns_equal=%5 checkerboard_renamed=%6")
+                            << QStringLiteral(
+                                       "FOVELLE_SETTINGS_SYSTEM_PROBE tabs=%1 shared_width=%2 "
+                                       "tab_widths_valid=%3 current_tab_width=%4 "
+                                       "columns_equal=%5 checkerboard_renamed=%6")
                                        .arg(tabCount)
-                                       .arg(adaptive ? QStringLiteral("true")
-                                                     : QStringLiteral("false"))
+                                       .arg(sharedWidth ? QStringLiteral("true")
+                                                        : QStringLiteral("false"))
                                        .arg(tabWidthsValid ? QStringLiteral("true")
                                                            : QStringLiteral("false"))
                                        .arg(currentTabWidth)

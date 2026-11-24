@@ -307,7 +307,7 @@ CASES = [
     c("ST-ASSOCIATE-LAUNCHSERVICES", "关联实现按扩展名解析 UTI 并调用 Launch Services。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-ASSOCIATE-DRYRUN", "文件关联计算支持无副作用 dry-run。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testAssociateAllSupportedFormatsDryRun"),
     c("ST-ASSOCIATE-DIALOG", "文件关联完成后使用原生主题感知弹窗提示。", "static", "tests/requirements_pipeline.py::static_contracts"),
-    c("UT-ASSOCIATE-CENTER", "关联按钮运行时水平中心与 Miscellaneous 可视内容区中心一致。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testAssociateFormatsButtonIsCentered"),
+    c("UT-ASSOCIATE-CENTER", "文件关联按钮在 General 更新与文件关联组内，采用原生次要按钮样式。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle"),
     c("UT-ASSOCIATE-DIALOG-THEME", "Light/Dark 原生弹窗适配器可实际应用。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNativeDialogsFollowSelectedTheme"),
     c("ST-DISPLAY-MERGED", "设置页只保留 Display、Miscellaneous、Shortcuts、Mouse 四个分类。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-DISPLAY-MERGED", "实际设置原生工具栏首项为 Display 且不再有 Window/Image。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence"),
@@ -340,7 +340,7 @@ UNIT_METHOD_MARKERS = {
     "UT-IMAGE-DEFAULTS": "FeatureTests::testPreferencesDefaultsAndRemovedControls",
     "UT-UPDATE-FREQUENCY": "FeatureTests::testUpdateCheckFrequencyPolicy",
     "UT-ASSOCIATE-DRYRUN": "FeatureTests::testAssociateAllSupportedFormatsDryRun",
-    "UT-ASSOCIATE-CENTER": "WindowBehaviorTests::testAssociateFormatsButtonIsCentered",
+    "UT-ASSOCIATE-CENTER": "WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle",
     "UT-ASSOCIATE-DIALOG-THEME": "WindowBehaviorTests::testNativeDialogsFollowSelectedTheme",
     "UT-DISPLAY-MERGED": "WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence",
     "UT-SETTINGS-CENTER": "WindowBehaviorTests::testOptionsDialogCentersOnMainWindow",
@@ -447,7 +447,7 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
         and "Dark Theme" not in options_ui
     )
     category_ok = (
-        all(f'tr("{name}")' in options_cpp for name in ("Display", "Miscellaneous", "Shortcuts", "Mouse"))
+        all(f'tr("{name}")' in options_cpp for name in ("General", "Shortcuts", "Mouse & Trackpad"))
         and all(f'tr("{name}")' not in options_cpp for name in ("Window", "Image", "Formats"))
     )
     view_menu_segment = actionmanager[actionmanager.find("QMenu *ActionManager::buildViewMenu") :]
@@ -505,7 +505,8 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
             "setValue(QStringLiteral(\"options/titlebarhidden\"), shouldHide)",
         )
     )
-    association_center_ok = all(marker in options_cpp for marker in ("QHBoxLayout", "setContentsMargins(0, 0, 0, 0)", "QFormLayout::SpanningRole"))
+    association_center_ok = ('name="updatesAssociations"' in options_ui
+                             and 'associateFormatsButton->setAutoDefault(false)' in options_cpp)
     nav_ok = all(
         marker in cocoa
         for marker in (

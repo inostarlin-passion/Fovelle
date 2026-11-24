@@ -1602,6 +1602,62 @@ Unable to associate: %1.</source>
         <source>Keep zoom level when switching images</source>
         <translation>切換圖片時保持縮放比例</translation>
     </message>
+    <message>
+        <source>Mouse &amp; Trackpad</source>
+        <translation>滑鼠與觸控式軌跡板</translation>
+    </message>
+    <message>
+        <source>Language &amp; Appearance</source>
+        <translation>語言與外觀</translation>
+    </message>
+    <message>
+        <source>Image Browsing</source>
+        <translation>影像瀏覽</translation>
+    </message>
+    <message>
+        <source>Slideshow</source>
+        <translation>幻燈片</translation>
+    </message>
+    <message>
+        <source>File Management</source>
+        <translation>檔案管理</translation>
+    </message>
+    <message>
+        <source>Updates &amp; File Associations</source>
+        <translation>軟體更新與檔案關聯</translation>
+    </message>
+    <message>
+        <source>Default Image Viewer</source>
+        <translation>預設影像檢視器</translation>
+    </message>
+    <message>
+        <source>Files &amp; Clipboard</source>
+        <translation>檔案與剪貼簿</translation>
+    </message>
+    <message>
+        <source>Navigation</source>
+        <translation>導覽</translation>
+    </message>
+    <message>
+        <source>View &amp; Comparison</source>
+        <translation>檢視與比較</translation>
+    </message>
+    <message>
+        <source>Animation &amp; Slideshow</source>
+        <translation>動畫與幻燈片</translation>
+    </message>
+    <message>
+        <source>App &amp; Windows</source>
+        <translation>App 與視窗</translation>
+    </message>
+    <message>
+        <source>Double-click a shortcut to edit it.</source>
+        <translation>按兩下快速鍵即可編輯。</translation>
+    </message>
+    <message>
+        <source>Edit…</source>
+        <translation>編輯⋯</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
@@ -1656,6 +1712,14 @@ No write permission or file is read-only.</source>
         <location filename="../src/qvshortcutdialog.cpp" line="57"/>
         <source>&quot;%1&quot; is already bound to &quot;%2&quot;</source>
         <translation>&quot;%1&quot; 已被綁定到 &quot;%2&quot;</translation>
+    </message>
+    <message>
+        <source>Press the keys to assign to this action.</source>
+        <translation>按下要指派給此動作的按鍵。</translation>
+    </message>
+    <message>
+        <source>Edit Shortcut for %1</source>
+        <translation>編輯「%1」的快速鍵</translation>
     </message>
 </context>
 <context>

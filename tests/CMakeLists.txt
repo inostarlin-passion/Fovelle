@@ -779,3 +779,16 @@ add_test(NAME FovelleComparison16KHDR COMMAND fovelle_tests testCompareMaximized
 set_tests_properties(FovelleComparison16KHDR PROPERTIES RUN_SERIAL TRUE TIMEOUT 0
     LABELS "compare;dynamic"
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
+
+add_test(NAME FovelleSettingsLayout COMMAND fovelle_tests
+    testSettingsDialogUsesNativeTabContractAndImmediatePersistence
+    testSettingsDialogUsesFixedWidthAndTabHeights testSettingsTabTransitionAndMouseReopen
+    testLocalizedSettingsFormsUseSharedLabelColumns testSettingsSpacingUsesNativeStyle
+    testSettingsAssociateButtonUsesNativeStyle testSettingsEveryTabFitsEveryLanguage
+    testSettingsNativeAppearance)
+set_tests_properties(FovelleSettingsLayout PROPERTIES RUN_SERIAL TRUE TIMEOUT 0 LABELS "settings"
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
+
+add_test(NAME FovelleSettingsShortcuts COMMAND fovelle_tests testShortcutCategoriesConflictAndRestore)
+set_tests_properties(FovelleSettingsShortcuts PROPERTIES RUN_SERIAL TRUE TIMEOUT 0 LABELS "settings"
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=ShortcutSettingsTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")

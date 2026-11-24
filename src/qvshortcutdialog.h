@@ -33,6 +33,7 @@ private slots:
 private:
     bool eventFilter(QObject *watched, QEvent *event) override;
     void done(int r) override;
+    bool updateConflictFeedback();
 
     Ui::QVShortcutDialog *ui;
 

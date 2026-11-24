@@ -193,15 +193,12 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
 @interface FovelleSettingsToolbarController : NSObject <NSToolbarDelegate> {
 @private
     QPointer<QTabBar> *_categoryTabs;
-    NSArray<NSToolbarItemIdentifier> *_itemIdentifiers;
-    NSArray<NSString *> *_symbolNames;
-    NSToolbar *_toolbar;
+    NSSegmentedControl *_tabs;
 }
 
 - (instancetype)initWithCategoryTabs:(QTabBar *)categoryTabs;
-- (void)selectPane:(NSToolbarItem *)sender;
+- (void)selectPane:(NSSegmentedControl *)sender;
 - (void)syncSelection:(NSInteger)index;
-- (void)setToolbar:(NSToolbar *)toolbar;
 @end
 
 @implementation FovelleSettingsToolbarController
@@ -213,39 +210,44 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
         return nil;
 
     _categoryTabs = new QPointer<QTabBar>(categoryTabs);
-    _itemIdentifiers = [@[
-        @"io.github.inostarlin-passion.Fovelle.settings.general",
-        @"io.github.inostarlin-passion.Fovelle.settings.shortcuts",
-        @"io.github.inostarlin-passion.Fovelle.settings.mouse"
-    ] retain];
-    _symbolNames = [@[ @"gearshape", @"keyboard", @"computermouse" ] retain];
+    auto *labels = [NSMutableArray<NSString *> array];
+    for (int index = 0; index < categoryTabs->count(); ++index)
+        [labels addObject:categoryTabs->tabText(index).toNSString()];
+
+    _tabs = [[NSSegmentedControl segmentedControlWithLabels:labels
+                                               trackingMode:NSSegmentSwitchTrackingSelectOne
+                                                     target:self
+                                                     action:@selector(selectPane:)] retain];
+    _tabs.segmentStyle = NSSegmentStyleRounded;
+    _tabs.segmentDistribution = NSSegmentDistributionFit;
+    const NSArray<NSString *> *symbols = @[ @"gearshape", @"keyboard", @"computermouse" ];
+    auto *configuration =
+            [NSImageSymbolConfiguration configurationWithPointSize:13 weight:NSFontWeightRegular];
+    for (NSUInteger index = 0; index < symbols.count && index < labels.count; ++index) {
+        NSImage *image = [NSImage imageWithSystemSymbolName:symbols[index]
+                                   accessibilityDescription:labels[index]];
+        [_tabs setImage:[image imageWithSymbolConfiguration:configuration] forSegment:index];
+    }
+    [_tabs sizeToFit];
     return self;
 }
 
 - (void)dealloc
 {
     delete _categoryTabs;
-    [_itemIdentifiers release];
-    [_symbolNames release];
+    [_tabs release];
     [super dealloc];
 }
 
 - (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar
 {
     Q_UNUSED(toolbar);
-    return _itemIdentifiers;
+    return @[ @"io.github.inostarlin-passion.Fovelle.settings.panes" ];
 }
 
 - (NSArray<NSToolbarItemIdentifier> *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar
 {
-    Q_UNUSED(toolbar);
-    return _itemIdentifiers;
-}
-
-- (NSArray<NSToolbarItemIdentifier> *)toolbarSelectableItemIdentifiers:(NSToolbar *)toolbar
-{
-    Q_UNUSED(toolbar);
-    return _itemIdentifiers;
+    return [self toolbarDefaultItemIdentifiers:toolbar];
 }
 
 - (NSToolbarItem *)toolbar:(NSToolbar *)toolbar
@@ -254,51 +256,28 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
 {
     Q_UNUSED(toolbar);
     Q_UNUSED(flag);
-    if (!_categoryTabs || _categoryTabs->isNull())
-        return nil;
-
-    const NSUInteger index = [_itemIdentifiers indexOfObject:itemIdentifier];
-    if (index == NSNotFound || index >= static_cast<NSUInteger>((*_categoryTabs)->count()))
-        return nil;
-
     auto *item = [[[NSToolbarItem alloc] initWithItemIdentifier:itemIdentifier] autorelease];
-    const QString qtLabel = (*_categoryTabs)->tabText(static_cast<int>(index));
-    NSString *label = qtLabel.toNSString();
-    item.label = label;
-    item.paletteLabel = label;
-    item.toolTip = label;
-    item.image = [NSImage imageWithSystemSymbolName:_symbolNames[index]
-                           accessibilityDescription:label];
-    item.target = self;
-    item.action = @selector(selectPane:);
+    item.view = _tabs;
     return item;
 }
 
-- (void)selectPane:(NSToolbarItem *)sender
+- (void)selectPane:(NSSegmentedControl *)sender
 {
-    const NSUInteger index = [_itemIdentifiers indexOfObject:sender.itemIdentifier];
-    if (index == NSNotFound || !_categoryTabs || _categoryTabs->isNull())
+    if (!_categoryTabs || _categoryTabs->isNull() || sender.selectedSegment < 0)
         return;
-
-    (*_categoryTabs)->setCurrentIndex(static_cast<int>(index));
-    [self syncSelection:static_cast<NSInteger>(index)];
+    (*_categoryTabs)->setCurrentIndex(static_cast<int>(sender.selectedSegment));
 }
 
 - (void)syncSelection:(NSInteger)index
 {
-    if (!_toolbar || !_categoryTabs || _categoryTabs->isNull() || index < 0
+    if (!_categoryTabs || _categoryTabs->isNull() || index < 0
         || index >= (*_categoryTabs)->count())
         return;
 
-    _toolbar.selectedItemIdentifier = _itemIdentifiers[static_cast<NSUInteger>(index)];
+    _tabs.selectedSegment = index;
     QWidget *settingsWindow = (*_categoryTabs)->window();
     if (settingsWindow)
         settingsWindow->setWindowTitle((*_categoryTabs)->tabText(static_cast<int>(index)));
-}
-
-- (void)setToolbar:(NSToolbar *)toolbar
-{
-    _toolbar = toolbar;
 }
 
 @end
@@ -5648,17 +5627,14 @@ void QVCocoaFunctions::configureSettingsToolbar(QWindow *window, QTabBar *catego
     auto *toolbar = [[NSToolbar alloc]
             initWithIdentifier:@"io.github.inostarlin-passion.Fovelle.settings.toolbar"];
     toolbar.delegate = controller;
-    toolbar.displayMode = NSToolbarDisplayModeIconAndLabel;
-    toolbar.sizeMode = NSToolbarSizeModeRegular;
     toolbar.allowsUserCustomization = NO;
     toolbar.autosavesConfiguration = NO;
     toolbar.allowsExtensionItems = NO;
     toolbar.visible = YES;
-    [controller setToolbar:toolbar];
 
-    nativeWindow.toolbarStyle = NSWindowToolbarStylePreference;
-    nativeWindow.titleVisibility = NSWindowTitleVisible;
-    nativeWindow.titlebarSeparatorStyle = NSTitlebarSeparatorStyleAutomatic;
+    nativeWindow.toolbarStyle = NSWindowToolbarStyleUnifiedCompact;
+    nativeWindow.titleVisibility = NSWindowTitleHidden;
+    nativeWindow.titlebarSeparatorStyle = NSTitlebarSeparatorStyleLine;
     nativeWindow.tabbingMode = NSWindowTabbingModeDisallowed;
     nativeWindow.toolbar = toolbar;
 
@@ -5698,7 +5674,7 @@ bool QVCocoaFunctions::hasNativeSettingsToolbar(const QWindow *window)
     return toolbar &&
             [toolbar.identifier
                     isEqualToString:@"io.github.inostarlin-passion.Fovelle.settings.toolbar"]
-            && view.window.toolbarStyle == NSWindowToolbarStylePreference;
+            && view.window.toolbarStyle == NSWindowToolbarStyleUnifiedCompact;
 }
 
 int QVCocoaFunctions::getObscuredHeight(QWindow *window)

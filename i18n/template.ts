@@ -1327,6 +1327,62 @@ No write permission or file is read-only.</source>
         <source>Keep zoom level when switching images</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Mouse &amp; Trackpad</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Language &amp; Appearance</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Image Browsing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Slideshow</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File Management</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Updates &amp; File Associations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default Image Viewer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Files &amp; Clipboard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Navigation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>View &amp; Comparison</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Animation &amp; Slideshow</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>App &amp; Windows</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Double-click a shortcut to edit it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit…</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
@@ -1369,6 +1425,14 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>&quot;%1&quot; is already bound to &quot;%2&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Press the keys to assign to this action.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit Shortcut for %1</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

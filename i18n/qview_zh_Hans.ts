@@ -1432,6 +1432,62 @@ Unable to associate: %1.</source>
         <source>Keep zoom level when switching images</source>
         <translation>切换图片时保持缩放比例</translation>
     </message>
+    <message>
+        <source>Mouse &amp; Trackpad</source>
+        <translation>鼠标与触控板</translation>
+    </message>
+    <message>
+        <source>Language &amp; Appearance</source>
+        <translation>语言与外观</translation>
+    </message>
+    <message>
+        <source>Image Browsing</source>
+        <translation>图像浏览</translation>
+    </message>
+    <message>
+        <source>Slideshow</source>
+        <translation>幻灯片</translation>
+    </message>
+    <message>
+        <source>File Management</source>
+        <translation>文件管理</translation>
+    </message>
+    <message>
+        <source>Updates &amp; File Associations</source>
+        <translation>软件更新与文件关联</translation>
+    </message>
+    <message>
+        <source>Default Image Viewer</source>
+        <translation>默认图像查看器</translation>
+    </message>
+    <message>
+        <source>Files &amp; Clipboard</source>
+        <translation>文件与剪贴板</translation>
+    </message>
+    <message>
+        <source>Navigation</source>
+        <translation>导航</translation>
+    </message>
+    <message>
+        <source>View &amp; Comparison</source>
+        <translation>查看与对比</translation>
+    </message>
+    <message>
+        <source>Animation &amp; Slideshow</source>
+        <translation>动画与幻灯片</translation>
+    </message>
+    <message>
+        <source>App &amp; Windows</source>
+        <translation>应用与窗口</translation>
+    </message>
+    <message>
+        <source>Double-click a shortcut to edit it.</source>
+        <translation>双击快捷键即可编辑。</translation>
+    </message>
+    <message>
+        <source>Edit…</source>
+        <translation>编辑…</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
@@ -1477,6 +1533,14 @@ No write permission or file is read-only.</source>
     <message>
         <source>&quot;%1&quot; is already bound to &quot;%2&quot;</source>
         <translation>&quot;%1&quot; 已绑定到 &quot;%2&quot;</translation>
+    </message>
+    <message>
+        <source>Press the keys to assign to this action.</source>
+        <translation>按下要分配给此操作的按键。</translation>
+    </message>
+    <message>
+        <source>Edit Shortcut for %1</source>
+        <translation>编辑“%1”的快捷键</translation>
     </message>
 </context>
 <context>
