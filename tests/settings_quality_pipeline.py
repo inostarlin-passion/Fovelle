@@ -249,6 +249,7 @@ NEW_SOURCES = tuple(next(iter(TRANSLATIONS.values())).keys())
 OLD_SOURCES = (
     "Checkerboard when image loaded",
     "Reuse window when launching with image",
+    "Show images smaller than the display area at their original 1:1 size",
     "After deletion:",
     "Do Nothing",
     "Side navigation regions",
@@ -472,6 +473,16 @@ def static_stage(repo: Path) -> dict[str, Any]:
         ui_xml_valid,
         {"path": "src/qvoptionsdialog.ui", "error": ui_xml_error},
         "The Qt Designer form must be well-formed before it can be compiled.",
+    ))
+    tooltip_markers = {
+        marker: marker not in production_text
+        for marker in ('name="toolTip"', "setToolTip(", "Qt::ToolTipRole", "QToolTip::showText")
+    }
+    checks.append(check(
+        "STATIC-SETTINGS-HOVER-TOOLTIPS-REMOVED",
+        all(tooltip_markers.values()),
+        tooltip_markers,
+        "Settings controls and table items must not supply hover tooltips.",
     ))
 
     required_source_markers = {

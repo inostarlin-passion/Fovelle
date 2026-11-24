@@ -20,6 +20,7 @@
 #include <QFile>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QHelpEvent>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -57,6 +58,7 @@
 #include <QTextDocumentFragment>
 #include <QTemporaryDir>
 #include <QThreadPool>
+#include <QToolTip>
 #include <QUrl>
 #include <QWheelEvent>
 #include <QScrollBar>
@@ -627,6 +629,7 @@ private slots:
     void testSettingsDefaultViewerSwitchActivation();
     void testSettingsEveryTabFitsEveryLanguage();
     void testSettingsNativeAppearance();
+    void testSettingsHoverDoesNotShowTooltips();
     void testSettingsControlsKeepBindingsAndKeyboard();
     void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
@@ -12895,6 +12898,7 @@ void ShortcutSettingsTests::testShortcutCategoriesConflictAndRestore()
     QTRY_VERIFY(editor.isNull());
     QCOMPARE(QSettings().value("shortcuts/open").toStringList(), defaults);
     QCOMPARE(table->item(1, 1)->text(), ShortcutManager::stringListToReadableString(defaults));
+    QVERIFY(!table->item(1, 1)->data(Qt::ToolTipRole).isValid());
     dialog.close();
 }
 
@@ -13449,6 +13453,58 @@ void WindowBehaviorTests::testSettingsNativeAppearance()
             }
         }
         dialog.close();
+    }
+}
+
+void WindowBehaviorTests::testSettingsHoverDoesNotShowTooltips()
+{
+    QVOptionsDialog dialog;
+    auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
+    auto *label = dialog.findChild<QLabel *>("smallImagesOneToOneLabel");
+    auto *toggle = dialog.findChild<QCheckBox *>("smallImagesOneToOneCheckbox");
+    auto *table = dialog.findChild<QTableWidget *>("shortcutsTable");
+    auto *editHint = dialog.findChild<QLabel *>("shortcutEditHint");
+    QVERIFY(tabs && label && toggle && table && editHint);
+
+    tabs->setCurrentIndex(0);
+    dialog.show();
+    QTRY_VERIFY(label->isVisible() && toggle->isVisible());
+    QCOMPARE(label->buddy(), toggle);
+    QCOMPARE(toggle->accessibleName(), label->text());
+
+    const auto sendHoverHelp = [](QWidget *widget, const QPoint &point) {
+        QHelpEvent event(QEvent::ToolTip, point, widget->mapToGlobal(point));
+        QApplication::sendEvent(widget, &event);
+    };
+    QToolTip::hideText();
+    QTRY_VERIFY(!QToolTip::isVisible());
+    const auto hideToolTip = qScopeGuard([] { QToolTip::hideText(); });
+    const QList<QWidget *> formControls{ label, toggle };
+    for (auto *control : formControls) {
+        sendHoverHelp(control, control->rect().center());
+        QVERIFY2(!QToolTip::isVisible(), qPrintable(control->objectName()));
+    }
+    for (auto *control : dialog.findChildren<QWidget *>())
+        QVERIFY2(control->toolTip().isEmpty(), qPrintable(control->objectName()));
+
+    tabs->setCurrentIndex(1);
+    QTRY_VERIFY(table->isVisible() && editHint->isVisible());
+    QVERIFY(!editHint->text().isEmpty());
+    QTRY_VERIFY(!dialog.property("settingsCategoryTransitionActive").toBool());
+    const int firstActionRow = 1;
+    for (int column = 0; column < table->columnCount(); ++column) {
+        const auto *item = table->item(firstActionRow, column);
+        QVERIFY(item);
+        const QPoint center = table->visualItemRect(item).center();
+        QVERIFY(table->viewport()->rect().contains(center));
+        sendHoverHelp(table->viewport(), center);
+        QVERIFY2(!QToolTip::isVisible(), qPrintable(item->text()));
+    }
+    for (int row = 0; row < table->rowCount(); ++row) {
+        for (int column = 0; column < table->columnCount(); ++column) {
+            if (const auto *item = table->item(row, column))
+                QVERIFY2(!item->data(Qt::ToolTipRole).isValid(), qPrintable(item->text()));
+        }
     }
 }
 

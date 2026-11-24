@@ -1360,10 +1360,6 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>Apariencia:</translation>
     </message>
     <message>
-        <source>Show images smaller than the display area at their original 1:1 size</source>
-        <translation>Mostrar las imágenes más pequeñas que el área de visualización en su tamaño original 1:1</translation>
-    </message>
-    <message>
         <source>Show small images at 1:1</source>
         <translation>Mostrar imágenes pequeñas a 1:1</translation>
     </message>

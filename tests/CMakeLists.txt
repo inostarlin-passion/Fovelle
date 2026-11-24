@@ -786,7 +786,8 @@ add_test(NAME FovelleSettingsLayout COMMAND fovelle_tests
     testLocalizedSettingsFormsUseSharedLabelColumns testSettingsSpacingUsesNativeStyle
     testSettingsDefaultViewerSwitchLayout testSettingsDefaultViewerSwitchActivation
     testSettingsEveryTabFitsEveryLanguage
-    testSettingsNativeAppearance testSettingsControlsKeepBindingsAndKeyboard)
+    testSettingsNativeAppearance testSettingsHoverDoesNotShowTooltips
+    testSettingsControlsKeepBindingsAndKeyboard)
 set_tests_properties(FovelleSettingsLayout PROPERTIES RUN_SERIAL TRUE TIMEOUT 0 LABELS "settings"
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
 

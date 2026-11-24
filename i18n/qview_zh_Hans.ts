@@ -1375,10 +1375,6 @@ No write permission or file is read-only.</source>
         <translation>外观:</translation>
     </message>
     <message>
-        <source>Show images smaller than the display area at their original 1:1 size</source>
-        <translation>以原始 1:1 大小显示小于显示区域的图像</translation>
-    </message>
-    <message>
         <source>Show small images at 1:1</source>
         <translation>以 1:1 显示小图像</translation>
     </message>

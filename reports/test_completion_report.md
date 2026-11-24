@@ -1,3 +1,17 @@
+# 设置页悬浮提示验收结果
+
+2026-11-25 在 macOS 27.0.1、Qt 6.12.0 的 ARM64 Release 构建验证。设置专项 **3/3 通过**，耗时 7.56 秒。 [构建日志](../build-thumbnail-release/test-results/settings-hover/build.log) · [设置专项日志](../build-thumbnail-release/test-results/settings-hover/ctest-settings.log)
+
+| 验收项 | 结果 | 核验 |
+| --- | --- | --- |
+| HT01 | 通过 | 确认 UI 属性、提示赋值和四种翻译均已移除。XML 和代码格式检查通过。 |
+| HT02 | 通过 | 向原 1:1 标签、开关及快捷键两列发送悬浮事件。界面未弹出提示，标签伙伴、无障碍名称和可见编辑说明仍有效。 |
+| HT03 | 通过 | 恢复默认快捷键后，表格显示正确绑定，未写入悬浮提示。 |
+
+改动前的 QtTest 分别复现了 1:1 标签悬浮提示和编辑后表格仍有提示数据。设置静态审计中三项历史规则的结果与基线一致。验证范围为本机 Cocoa 及应用生成的提示。 [改动前复现](../build-thumbnail-release/test-results/settings-hover/baseline.log) · [静态核验](../build-thumbnail-release/test-results/settings-hover/static.log) · [历史规则对照](../build-thumbnail-release/test-results/settings-hover/static-baseline-comparison.log)
+
+---
+
 # 默认图像查看器开关验收结果
 
 2026-11-25 在 macOS 27.0.1、Qt 6.12.0 的 ARM64 Release 构建验证。默认 CTest **13/13 通过**，耗时 98.34 秒。格式和改动相关静态检查通过。 [构建日志](../build-thumbnail-release/test-results/settings-viewer-switch/build.log) · [静态日志](../build-thumbnail-release/test-results/settings-viewer-switch/static.log) · [CTest 日志](../build-thumbnail-release/test-results/settings-viewer-switch/ctest.log)

@@ -1360,10 +1360,6 @@ No write permission or file is read-only.</source>
         <translation>外観:</translation>
     </message>
     <message>
-        <source>Show images smaller than the display area at their original 1:1 size</source>
-        <translation>表示領域より小さい画像を元の 1:1 サイズで表示</translation>
-    </message>
-    <message>
         <source>Show small images at 1:1</source>
         <translation>小さい画像を 1:1 で表示</translation>
     </message>

@@ -77,7 +77,6 @@ void configureForms(QWidget *page)
             else if (auto *button = field->findChild<QPushButton *>())
                 editor = button;
             label->setBuddy(editor);
-            label->setToolTip(editor->toolTip());
             if (qobject_cast<QCheckBox *>(editor)) {
                 editor->setFixedSize(editor->sizeHint());
                 editor->setAccessibleName(label->text().remove(QLatin1Char('&')));
@@ -761,7 +760,6 @@ void QVOptionsDialog::syncShortcuts()
         table->insertRow(row);
         auto *name = new QTableWidgetItem(shortcut.readableName);
         name->setData(Qt::UserRole, index);
-        name->setToolTip(shortcut.readableName);
         table->setItem(row, 0, name);
         auto *keys = new QTableWidgetItem;
         keys->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
@@ -780,9 +778,7 @@ void QVOptionsDialog::updateShortcutsTable()
             continue;
         const QString text =
                 ShortcutManager::stringListToReadableString(transientShortcuts.at(index));
-        auto *item = table->item(row, 1);
-        item->setText(text.isEmpty() ? QStringLiteral("—") : text);
-        item->setToolTip(text);
+        table->item(row, 1)->setText(text.isEmpty() ? QStringLiteral("—") : text);
     }
     filterShortcuts();
 }

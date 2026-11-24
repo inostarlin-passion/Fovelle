@@ -1417,10 +1417,6 @@ No write permission or file is read-only.</source>
         <translation>平滑縮放:</translation>
     </message>
     <message>
-        <source>Show images smaller than the display area at their original 1:1 size</source>
-        <translation>將小於顯示區域的影像以原始 1:1 大小顯示</translation>
-    </message>
-    <message>
         <source>Show small images at 1:1</source>
         <translation>以 1:1 顯示小型影像</translation>
     </message>
