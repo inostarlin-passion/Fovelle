@@ -33,13 +33,13 @@ CATALOGS = {
     "zh_Hans": "qview_zh_Hans.ts",
     "zh_Hant": "qview_zh_Hant.ts",
 }
-NEW_SOURCE = "Use checkerboard background"
+NEW_SOURCE = "Checkerboard background"
 OLD_SOURCE = "Use checkerboard background after opening image"
 TRANSLATIONS = {
-    "es": "Usar fondo de tablero de ajedrez",
-    "ja": "チェック柄の背景を使用",
-    "zh_Hans": "使用棋盘格背景",
-    "zh_Hant": "使用棋盤格背景",
+    "es": "Fondo de tablero",
+    "ja": "チェック柄の背景",
+    "zh_Hans": "棋盘格背景",
+    "zh_Hant": "棋盤格背景",
 }
 
 
@@ -51,7 +51,7 @@ CASES = (
         "preconditions": "已构建带 Cocoa 的 fovelle_tests；QVOptionsDialog 可构造；macOS 事件循环可用。",
         "input_data": "三个 Tab、共享的 settingsTabWidths、QStackedWidget 宽度、对话框宽度和两个滚动区域。",
         "steps": "构造并显示设置页；依次选择 General、Shortcuts、Mouse；等待尺寸动画结束；读取每个 Tab 的宽度和滚动范围。",
-        "expected_result": "三个面板的窗口宽度均为 512 pt，General 和 Mouse & Trackpad 无水平滚动。",
+        "expected_result": "三个面板的窗口宽度均为 500 pt，General 和 Mouse & Trackpad 无水平滚动。",
         "postconditions": "关闭设置页；临时语言、Tab 索引和窗口几何恢复。",
         "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights",
         "evidence_stages": ("static", "integration", "system"),
@@ -70,12 +70,12 @@ CASES = (
     },
     {
         "id": "AC-SETTINGS-CHECKERBOARD-SOURCE",
-        "acceptance_criterion": "General Tab 的复选框源文案由 Use checkerboard background after opening image 改为 Use checkerboard background。",
+        "acceptance_criterion": "General Tab 的复选框源文案由 Use checkerboard background after opening image 改为 Checkerboard background。",
         "test_purpose": "验证 Qt Designer 源文案、运行时英文文案和旧文案清理一致。",
         "preconditions": "QVApplication 已初始化；英文源翻译测试夹具已安装。",
         "input_data": "checkerboardBackgroundCheckbox 的 objectName 和 text。",
         "steps": "构造 QVOptionsDialog；查找复选框；读取运行时 text；同时执行静态 UI/XML source 检查。",
-        "expected_result": "运行时 text 精确等于 Use checkerboard background；生产 UI 与目录中不存在旧 source。",
+        "expected_result": "运行时 text 精确等于 Checkerboard background；生产 UI 与目录中不存在旧 source。",
         "postconditions": "销毁对话框；恢复临时设置，不改变棋盘格开关值。",
         "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions + tests/settings_ui_quality_pipeline.py::static_stage",
         "evidence_stages": ("static", "unit", "system"),
@@ -338,15 +338,15 @@ def static_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
     source_contract = {
         "new_source_in_ui": NEW_SOURCE in ui,
         "old_source_absent_in_ui": OLD_SOURCE not in ui,
-        "shared_width_marker": "SettingsWidth = 512" in cpp
+        "shared_width_marker": "SettingsWidth = 500" in cpp
             and "QVariantList{ pageWidth, pageWidth, pageWidth }" in cpp,
         "equal_stretch_columns": (
             "horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch)" in cpp
             and "horizontalHeaderStretchLastSection" not in ui
         ),
         "height_animation": (
-            "setStartValue(QSize(SettingsWidth, height()))" in cpp
-            and "setEndValue(QSize(SettingsWidth, targetHeight))" in cpp
+            "setStartValue(QSize(settingsWidth, height()))" in cpp
+            and "setEndValue(QSize(settingsWidth, targetHeight))" in cpp
         ),
     }
     add("ST-SOURCE-CONTRACT", all(source_contract.values()), source_contract,
@@ -405,7 +405,7 @@ def static_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
         "translation template follows the renamed source inventory")
 
     test_contract = {
-        "english_label_test": "Use checkerboard background" in tests,
+        "english_label_test": "Checkerboard background" in tests,
         "shared_width_test": "testSettingsDialogUsesFixedWidthAndTabHeights" in tests,
         "equal_columns_test": "QHeaderView::Stretch" in tests
             and "sectionSize(0)" in tests and "sectionSize(1)" in tests

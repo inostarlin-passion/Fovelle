@@ -1658,6 +1658,146 @@ Unable to associate: %1.</source>
         <source>Edit…</source>
         <translation>編輯⋯</translation>
     </message>
+    <message>
+        <source>Appearance</source>
+        <translation>外觀</translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation>語言</translation>
+    </message>
+    <message>
+        <source>Checkerboard background</source>
+        <translation>棋盤格背景</translation>
+    </message>
+    <message>
+        <source>Smooth scaling</source>
+        <translation>平滑縮放</translation>
+    </message>
+    <message>
+        <source>Direction</source>
+        <translation>方向</translation>
+    </message>
+    <message>
+        <source>Interval</source>
+        <translation>間隔</translation>
+    </message>
+    <message>
+        <source>After deleting files</source>
+        <translation>刪除檔案後</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>檢查更新</translation>
+    </message>
+    <message>
+        <source>High Quality</source>
+        <translation>高品質</translation>
+    </message>
+    <message>
+        <source>Double Click</source>
+        <translation>雙擊</translation>
+    </message>
+    <message>
+        <source>Drag</source>
+        <translation>拖曳</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>中鍵點按</translation>
+    </message>
+    <message>
+        <source>Vertical Scroll</source>
+        <translation>垂直捲動</translation>
+    </message>
+    <message>
+        <source>Horizontal Scroll</source>
+        <translation>水平捲動</translation>
+    </message>
+    <message>
+        <source>sec</source>
+        <translation>秒</translation>
+    </message>
+    <message>
+        <source>%1 + Double Click</source>
+        <translation>%1 + 雙擊</translation>
+    </message>
+    <message>
+        <source>%1 + Drag</source>
+        <translation>%1 + 拖曳</translation>
+    </message>
+    <message>
+        <source>%1 + Middle Click</source>
+        <translation>%1 + 中鍵點按</translation>
+    </message>
+    <message>
+        <source>%1 + Vertical Scroll</source>
+        <translation>%1 + 垂直捲動</translation>
+    </message>
+    <message>
+        <source>%1 + Horizontal Scroll</source>
+        <translation>%1 + 水平捲動</translation>
+    </message>
+    <message>
+        <source>Scroll Wheel &amp; Trackpad</source>
+        <translation>滾輪與觸控式軌跡板</translation>
+    </message>
+    <message>
+        <source>Software Updates</source>
+        <translation>軟體更新</translation>
+    </message>
+    <message>
+        <source>Search shortcuts</source>
+        <translation>搜尋快速鍵</translation>
+    </message>
+    <message>
+        <source>Applies to all supported image formats.</source>
+        <translation>適用於所有支援的影像格式。</translation>
+    </message>
+    <message>
+        <source>Not set as default</source>
+        <translation>未設為預設檢視器</translation>
+    </message>
+    <message>
+        <source>Default for some formats</source>
+        <translation>部分格式已設為預設</translation>
+    </message>
+    <message>
+        <source>Default for all supported formats</source>
+        <translation>所有支援的格式皆已設為預設</translation>
+    </message>
+    <message>
+        <source>Default status unavailable</source>
+        <translation>無法確認預設檢視器狀態</translation>
+    </message>
+    <message>
+        <source>Updating file associations…</source>
+        <translation>正在更新檔案關聯…</translation>
+    </message>
+    <message>
+        <source>Set as Default</source>
+        <translation>設為預設</translation>
+    </message>
+    <message>
+        <source>Associate All</source>
+        <translation>關聯全部</translation>
+    </message>
+    <message>
+        <source>✓ Default</source>
+        <translation>✓ 預設</translation>
+    </message>
+    <message>
+        <source>The system request was cancelled. Earlier changes may still apply.</source>
+        <translation>系統要求已取消，先前的變更可能仍然有效。</translation>
+    </message>
+    <message>
+        <source>Some formats could not be updated. %1</source>
+        <translation>部分格式無法更新。%1</translation>
+    </message>
+    <message>
+        <source>The system has not confirmed the change for every format.</source>
+        <translation>系統尚未確認所有格式的變更。</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>

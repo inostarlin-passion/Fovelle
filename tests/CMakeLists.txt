@@ -785,10 +785,16 @@ add_test(NAME FovelleSettingsLayout COMMAND fovelle_tests
     testSettingsDialogUsesFixedWidthAndTabHeights testSettingsTabTransitionAndMouseReopen
     testLocalizedSettingsFormsUseSharedLabelColumns testSettingsSpacingUsesNativeStyle
     testSettingsAssociateButtonUsesNativeStyle testSettingsEveryTabFitsEveryLanguage
-    testSettingsNativeAppearance)
+    testSettingsNativeAppearance testSettingsControlsKeepBindingsAndKeyboard)
 set_tests_properties(FovelleSettingsLayout PROPERTIES RUN_SERIAL TRUE TIMEOUT 0 LABELS "settings"
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
 
 add_test(NAME FovelleSettingsShortcuts COMMAND fovelle_tests testShortcutCategoriesConflictAndRestore)
 set_tests_properties(FovelleSettingsShortcuts PROPERTIES RUN_SERIAL TRUE TIMEOUT 0 LABELS "settings"
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=ShortcutSettingsTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
+
+add_test(NAME FovelleSettingsDataModel COMMAND fovelle_tests
+    testSettingsGeneralGroupsAndDefaults testFileAssociationStatusFromSystem testFileAssociationSerialRequests
+    testSettingsRenamedLabelsAndRemovedMouseOptions testPreferencesDefaultsAndRemovedControls)
+set_tests_properties(FovelleSettingsDataModel PROPERTIES RUN_SERIAL TRUE TIMEOUT 0 LABELS "settings"
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")

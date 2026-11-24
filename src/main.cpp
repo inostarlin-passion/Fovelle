@@ -158,7 +158,10 @@ int main(int argc, char *argv[])
                         currentTabWidth = dialog->property("settingsTabWidth").toInt();
                         for (const QVariant &width : widths)
                             tabWidthsValid = tabWidthsValid && width.toInt() == currentTabWidth;
-                        sharedWidth = tabWidthsValid && dialog->width() == 512;
+                        sharedWidth = tabWidthsValid && dialog->width() >= 460
+                                && dialog->width() <= 500
+                                && dialog->width()
+                                        == dialog->property("settingsFixedWidth").toInt();
                         if (table) {
                             auto *header = table->horizontalHeader();
                             // Stretch sections are integer pixels; an odd

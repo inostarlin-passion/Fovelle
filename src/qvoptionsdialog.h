@@ -41,6 +41,7 @@ protected:
     void showEvent(QShowEvent *event) override;
 
     void changeEvent(QEvent *event) override;
+    bool eventFilter(QObject *object, QEvent *event) override;
 
     void modifySetting(QString key, QVariant value);
     void syncSettings(bool defaults = false, bool makeConnections = false);
@@ -54,6 +55,8 @@ protected:
                            bool makeConnection = false);
     void syncShortcuts();
     void updateShortcutsTable();
+    void filterShortcuts();
+    void refreshFileAssociations();
     void editShortcut(int row);
     void updateNaturalPageSizes();
     void resizeForCategory(int categoryIndex);
@@ -96,6 +99,7 @@ private:
 
     QVector<int> pageHeights;
 
+    int settingsWidth{ 500 };
     int categoryTargetHeight{ 0 };
 };
 

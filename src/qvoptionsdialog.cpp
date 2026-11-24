@@ -1,4 +1,5 @@
 #include "qvoptionsdialog.h"
+#include "qvsettingswidgets.h"
 #include "ui_qvoptionsdialog.h"
 #include "qvapplication.h"
 #include "qvshortcutdialog.h"
@@ -26,11 +27,18 @@
 #include <QAbstractButton>
 #include <QLabel>
 #include <QScreen>
+#include <QDynamicPropertyChangeEvent>
+#include <QPainter>
+#include <QPainterPath>
+#include <QPointer>
+#include <QShortcut>
+#include <QStyleOptionComboBox>
+#include <QStyleOptionSpinBox>
 
 namespace {
-constexpr int SettingsWidth = 512;
-constexpr int SettingsRowHeight = 24;
-constexpr int SettingsMinimumPopupWidth = 176;
+constexpr int SettingsWidth = 500;
+constexpr int SettingsMinimumWidth = 460;
+constexpr int SettingsRowHeight = 32;
 
 void configureSeparator(QFrame *separator)
 {
@@ -40,40 +48,50 @@ void configureSeparator(QFrame *separator)
     separator->setFixedHeight(1);
 }
 
+QColor settingsTint(const QPalette &palette, const qreal weight)
+{
+    const QColor base = palette.color(QPalette::Window);
+    const QColor text = palette.color(QPalette::WindowText);
+    return QColor::fromRgbF(base.redF() + (text.redF() - base.redF()) * weight,
+                            base.greenF() + (text.greenF() - base.greenF()) * weight,
+                            base.blueF() + (text.blueF() - base.blueF()) * weight);
+}
+
 void configureForms(QWidget *page)
 {
     for (auto *form : page->findChildren<QGridLayout *>()) {
         for (int row = 0; row < form->rowCount(); ++row) {
+            auto *labelItem = form->itemAtPosition(row, 0);
+            auto *fieldItem = form->itemAtPosition(row, 1);
+            if (!labelItem || !fieldItem || labelItem == fieldItem)
+                continue;
+
             form->setRowMinimumHeight(row, SettingsRowHeight);
-            auto *label = qobject_cast<QLabel *>(form->itemAtPosition(row, 0)->widget());
-            auto *field = form->itemAtPosition(row, 1)->widget();
-            // AppKit's per-control layout insets otherwise shift the trailing
-            // edge of a whole grid when a different type of control is added.
+            auto *label = qobject_cast<QLabel *>(labelItem->widget());
+            auto *field = fieldItem->widget();
             label->setAttribute(Qt::WA_LayoutUsesWidgetRect);
             field->setAttribute(Qt::WA_LayoutUsesWidgetRect);
-            if (qobject_cast<QComboBox *>(field))
-                field->setAttribute(Qt::WA_MacSmallSize);
-            label->setBuddy(field);
-            label->setToolTip(field->toolTip());
-            if (qobject_cast<QCheckBox *>(field)) {
-                // A textless Cocoa checkbox needs room for the indicator and
-                // its drawing insets when laid out using the widget rect.
-                field->setMinimumSize(
-                        QSize(SettingsRowHeight, SettingsRowHeight).expandedTo(field->sizeHint()));
-                field->setAccessibleName(label->text().remove(QLatin1Char('&')));
+            QWidget *editor = field;
+            if (auto *spin = field->findChild<QDoubleSpinBox *>())
+                editor = spin;
+            else if (auto *button = field->findChild<QPushButton *>())
+                editor = button;
+            label->setBuddy(editor);
+            label->setToolTip(editor->toolTip());
+            if (qobject_cast<QCheckBox *>(editor)) {
+                editor->setFixedSize(editor->sizeHint());
+                editor->setAccessibleName(label->text().remove(QLatin1Char('&')));
+            }
+            if (auto *popup = qobject_cast<QComboBox *>(field)) {
+                popup->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+                popup->setAttribute(Qt::WA_Hover);
+                popup->setCursor(Qt::PointingHandCursor);
             }
         }
     }
-    for (auto *label : page->findChildren<QLabel *>()) {
-        if (label->objectName().endsWith(QStringLiteral("Heading"))) {
-            QFont font = label->font();
-            font.setWeight(QFont::DemiBold);
-            label->setFont(font);
-        }
-    }
-    for (auto *separator : page->findChildren<QFrame *>()) {
-        if (separator->frameShape() == QFrame::HLine)
-            configureSeparator(separator);
+    for (auto *line : page->findChildren<QFrame *>()) {
+        if (line->objectName().endsWith(QStringLiteral("Separator")))
+            configureSeparator(line);
     }
 }
 
@@ -81,18 +99,10 @@ void measureForm(QScrollArea *scroll, int pageWidth)
 {
     auto *content = scroll->widget();
     auto *layout = content->layout();
-    const auto popups = content->findChildren<QComboBox *>();
-    int popupWidth = SettingsMinimumPopupWidth;
-    for (auto *popup : popups) {
-        popup->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-        popupWidth =
-                qMax(popupWidth, popup->sizeHint().expandedTo(popup->minimumSizeHint()).width());
+    for (auto *popup : content->findChildren<QComboBox *>()) {
+        const QSize hint = popup->sizeHint().expandedTo(popup->minimumSizeHint());
+        popup->setFixedSize(hint.width(), qMax(24, hint.height()));
     }
-    for (auto *popup : popups)
-        popup->setFixedWidth(popupWidth);
-
-    // Reserve the trailing inset in both scroll areas, including when the
-    // user's scrollbar preference makes a vertical scrollbar occupy space.
     const int scrollbarWidth = scroll->style()->pixelMetric(QStyle::PM_ScrollBarExtent);
     const int formWidth = pageWidth - qMax(0, scrollbarWidth);
     layout->setAlignment(Qt::AlignTop);
@@ -109,6 +119,132 @@ int shortcutIndex(const QTableWidget *table, const int row)
 }
 } // namespace
 
+void QVSettingsGroup::paintEvent(QPaintEvent *)
+{
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    const bool contrast = QVCocoaFunctions::increaseSettingsContrast();
+    painter.setBrush(settingsTint(palette(), 0.055));
+    painter.setPen(contrast ? QPen(settingsTint(palette(), 0.45)) : Qt::NoPen);
+    painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 9, 9);
+}
+
+void QVSettingsPopup::paintEvent(QPaintEvent *)
+{
+    QStyleOptionComboBox option;
+    initStyleOption(&option);
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    const bool contrast = QVCocoaFunctions::increaseSettingsContrast();
+    const bool hovered = isEnabled() && (underMouse() || popupOpen);
+    if (hovered || hasFocus()) {
+        painter.setBrush(hovered ? settingsTint(palette(), popupOpen ? 0.17 : 0.1)
+                                 : QColor(Qt::transparent));
+        painter.setPen(hasFocus() ? QPen(option.palette.color(QPalette::Highlight), 2) : Qt::NoPen);
+        painter.drawRoundedRect(QRectF(rect()).adjusted(1, 2, -1, -2), 6, 6);
+    }
+    const QColor text = isEnabled() ? settingsTint(palette(), contrast ? 0.92 : 0.72)
+                                    : option.palette.color(QPalette::Disabled, QPalette::Text);
+    painter.setPen(text);
+    const QRect textRect = rect().adjusted(7, 0, -22, 0);
+    painter.drawText(
+            textRect, Qt::AlignRight | Qt::AlignVCenter,
+            fontMetrics().elidedText(option.currentText, Qt::ElideRight, textRect.width()));
+    const qreal x = width() - 10;
+    const qreal y = height() / 2.0;
+    QPainterPath chevron;
+    chevron.moveTo(x - 3, y - 1);
+    chevron.lineTo(x, y - 4);
+    chevron.lineTo(x + 3, y - 1);
+    chevron.moveTo(x - 3, y + 1);
+    chevron.lineTo(x, y + 4);
+    chevron.lineTo(x + 3, y + 1);
+    painter.setPen(QPen(text, contrast ? 1.6 : 1.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.drawPath(chevron);
+}
+
+void QVSettingsPopup::showPopup()
+{
+    popupOpen = true;
+    update();
+    QComboBox::showPopup();
+    popupOpen = view() && view()->isVisible();
+    update();
+}
+
+void QVSettingsPopup::hidePopup()
+{
+    popupOpen = false;
+    QComboBox::hidePopup();
+    update();
+}
+
+QVSettingsSwitch::QVSettingsSwitch(QWidget *parent) : QCheckBox(parent)
+{
+    setCursor(Qt::PointingHandCursor);
+    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+}
+
+QSize QVSettingsSwitch::sizeHint() const
+{
+    return { 42, SettingsRowHeight };
+}
+
+QSize QVSettingsSwitch::minimumSizeHint() const
+{
+    return sizeHint();
+}
+
+bool QVSettingsSwitch::hitButton(const QPoint &position) const
+{
+    return rect().contains(position);
+}
+
+void QVSettingsSwitch::paintEvent(QPaintEvent *event)
+{
+    const QImage image = QVCocoaFunctions::settingsSwitchImage(
+            window()->windowHandle(), isChecked(), isEnabled(), devicePixelRatioF());
+    if (image.isNull()) {
+        QCheckBox::paintEvent(event);
+        return;
+    }
+
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    if (hasFocus()) {
+        painter.setPen(QPen(palette().color(QPalette::Highlight), 2));
+        painter.drawRoundedRect(QRectF(rect()).adjusted(2, 4, -2, -4), 7, 7);
+    }
+    if (isDown())
+        painter.setOpacity(0.8);
+    const QSizeF size = QSizeF(image.size()) / image.devicePixelRatio();
+    painter.drawImage(QPointF((width() - size.width()) / 2, (height() - size.height()) / 2), image);
+}
+
+void QVSettingsNumber::paintEvent(QPaintEvent *event)
+{
+    QDoubleSpinBox::paintEvent(event);
+    QStyleOptionSpinBox option;
+    initStyleOption(&option);
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    const auto drawArrow = [&](QStyle::SubControl control, StepEnabledFlag enabled, int direction) {
+        const QRect button = style()->subControlRect(QStyle::CC_SpinBox, &option, control, this);
+        if (button.isEmpty())
+            return;
+        const auto group = isEnabled() && option.stepEnabled.testFlag(enabled) ? QPalette::Current
+                                                                               : QPalette::Disabled;
+        painter.setPen(QPen(palette().color(group, QPalette::WindowText), 1.2, Qt::SolidLine,
+                            Qt::RoundCap, Qt::RoundJoin));
+        const QPointF center = QRectF(button).center();
+        const QPointF points[] = { center + QPointF(-3, -direction), center + QPointF(0, direction),
+                                   center + QPointF(3, -direction) };
+        painter.drawPolyline(points, 3);
+    };
+    drawArrow(QStyle::SC_SpinBoxUp, StepUpEnabled, -1);
+    drawArrow(QStyle::SC_SpinBoxDown, StepDownEnabled, 1);
+}
+
 QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::QVOptionsDialog)
 {
     ui->setupUi(this);
@@ -121,6 +257,13 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
     }
 
     ui->associateFormatsButton->setAutoDefault(false);
+    ui->associateFormatsButton->setAttribute(Qt::WA_LayoutUsesWidgetRect);
+    ui->associationDefaultIndicator->hide();
+    ui->associationFeedback->hide();
+    ui->associationFeedback->setTextFormat(Qt::PlainText);
+    ui->slideshowTimerSpinBox->setAttribute(Qt::WA_MacSmallSize);
+    ui->slideshowTimerSpinBox->setFrame(false);
+    ui->slideshowTimerSpinBox->setMinimumWidth(76);
     ui->associateFormatsButton->setAttribute(Qt::WA_MacSmallSize);
     ui->editShortcutButton->setAutoDefault(false);
     ui->editShortcutButton->setEnabled(false);
@@ -130,6 +273,29 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
 
     auto *table = ui->shortcutsTable;
     table->setWordWrap(false);
+    table->setAlternatingRowColors(true);
+    table->horizontalHeader()->setSectionsClickable(false);
+    table->horizontalHeader()->setStyleSheet(QStringLiteral(
+            "QHeaderView::section { background: palette(window); border: 0; padding: 4px; }"));
+    ui->shortcutSearch->setAttribute(Qt::WA_MacSmallSize);
+    const QString inputStyle =
+            QStringLiteral("QLineEdit, QDoubleSpinBox { border: 1px solid palette(mid);"
+                           " border-radius: 6px;"
+                           " background: palette(base); padding: 2px 6px; }"
+                           " QLineEdit:focus, QDoubleSpinBox:focus {"
+                           " border-color: palette(highlight); }");
+    ui->shortcutSearch->setStyleSheet(inputStyle);
+    ui->slideshowTimerSpinBox->setStyleSheet(
+            inputStyle
+            + QStringLiteral("QDoubleSpinBox QLineEdit { border: 0;"
+                             " background: transparent; padding: 0 3px; }"
+                             " QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow"
+                             " { image: none; }"));
+    if (auto *editor = ui->slideshowTimerSpinBox->findChild<QLineEdit *>())
+        editor->setAlignment(Qt::AlignRight);
+    auto *closeShortcut = new QShortcut(QKeySequence::Close, this);
+    connect(closeShortcut, &QShortcut::activated, this, &QDialog::close);
+    connect(ui->shortcutSearch, &QLineEdit::textChanged, this, &QVOptionsDialog::filterShortcuts);
     table->setTabKeyNavigation(false);
     table->horizontalHeaderItem(0)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     table->horizontalHeaderItem(1)->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
@@ -151,7 +317,7 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
     categorySizeAnimation->setEasingCurve(QEasingCurve::InOutCubic);
     connect(categorySizeAnimation, &QPropertyAnimation::finished, this, [this]() {
         if (categoryTargetHeight > 0)
-            setFixedSize(SettingsWidth, categoryTargetHeight);
+            setFixedSize(settingsWidth, categoryTargetHeight);
         setProperty("settingsCategoryTransitionActive", false);
     });
 
@@ -186,6 +352,13 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
     connect(ui->associateFormatsButton, &QPushButton::clicked, this,
             &QVOptionsDialog::associateSupportedFormats);
 
+    qApp->installEventFilter(this);
+    connect(qApp, &QGuiApplication::applicationStateChanged, this,
+            [this](Qt::ApplicationState state) {
+                if (state == Qt::ApplicationActive && isVisible())
+                    refreshFileAssociations();
+            });
+
     QSettings settings;
 
     // The former Display and Miscellaneous tabs occupied indexes 0 and 1.
@@ -210,11 +383,11 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
     QString ctrlKeyName = QKeySequence(Qt::CTRL)
                                   .toString(QKeySequence::NativeText)
                                   .replace(QRegularExpression("\\+$"), "");
-    ui->altDoubleClickLabel->setText(tr("%1 + Double Click:").arg(ctrlKeyName));
-    ui->altDragLabel->setText(tr("%1 + Drag:").arg(ctrlKeyName));
-    ui->altMiddleClickLabel->setText(tr("%1 + Middle Click:").arg(ctrlKeyName));
-    ui->altVerticalScrollLabel->setText(tr("%1 + Vertical Scroll:").arg(ctrlKeyName));
-    ui->altHorizontalScrollLabel->setText(tr("%1 + Horizontal Scroll:").arg(ctrlKeyName));
+    ui->altDoubleClickLabel->setText(tr("%1 + Double Click").arg(ctrlKeyName));
+    ui->altDragLabel->setText(tr("%1 + Drag").arg(ctrlKeyName));
+    ui->altMiddleClickLabel->setText(tr("%1 + Middle Click").arg(ctrlKeyName));
+    ui->altVerticalScrollLabel->setText(tr("%1 + Vertical Scroll").arg(ctrlKeyName));
+    ui->altHorizontalScrollLabel->setText(tr("%1 + Horizontal Scroll").arg(ctrlKeyName));
 
     syncSettings(false, true);
     syncShortcuts();
@@ -236,12 +409,37 @@ QVOptionsDialog::~QVOptionsDialog()
 
 void QVOptionsDialog::updateNaturalPageSizes()
 {
-    const QColor background = palette().color(QPalette::Window);
-    const QColor foreground = palette().color(QPalette::WindowText);
-    const QColor separatorColor =
-            QColor::fromRgbF((7 * background.redF() + foreground.redF()) / 8,
-                             (7 * background.greenF() + foreground.greenF()) / 8,
-                             (7 * background.blueF() + foreground.blueF()) / 8);
+    const bool contrast = QVCocoaFunctions::increaseSettingsContrast();
+    QPalette inputPalette = palette();
+    inputPalette.setColor(QPalette::Mid, settingsTint(palette(), contrast ? 0.55 : 0.20));
+    ui->shortcutSearch->setPalette(inputPalette);
+    ui->slideshowTimerSpinBox->setPalette(inputPalette);
+    const QColor secondaryColor = settingsTint(palette(), contrast ? 0.95 : 0.68);
+    for (auto *label : ui->stackedWidget->findChildren<QLabel *>()) {
+        if (!label->objectName().endsWith(QStringLiteral("Heading"))
+            && label != ui->shortcutEditHint && label != ui->associationScope
+            && label != ui->associationStatus && label != ui->associationFeedback)
+            continue;
+        QFont font = this->font();
+        font.setPointSizeF(qMax(11.0, font.pointSizeF() - 2.0));
+        if (label->objectName().endsWith(QStringLiteral("Heading")))
+            font.setWeight(QFont::Medium);
+        label->setFont(font);
+        QPalette labelPalette = palette();
+        labelPalette.setColor(QPalette::WindowText, secondaryColor);
+        label->setPalette(labelPalette);
+    }
+
+    auto *shortcutTable = ui->shortcutsTable;
+    QPalette tablePalette = palette();
+    tablePalette.setColor(QPalette::Base, palette().color(QPalette::Window));
+    tablePalette.setColor(QPalette::AlternateBase, settingsTint(palette(), 0.035));
+    shortcutTable->setPalette(tablePalette);
+    for (int row = 0; row < shortcutTable->rowCount(); ++row) {
+        if (shortcutIndex(shortcutTable, row) < 0)
+            shortcutTable->item(row, 0)->setForeground(secondaryColor);
+    }
+    const QColor separatorColor = settingsTint(palette(), contrast ? 0.42 : 0.13);
     QPalette separatorPalette = palette();
     separatorPalette.setColor(QPalette::Window, separatorColor);
     for (auto *separator : ui->stackedWidget->findChildren<QFrame *>()) {
@@ -250,23 +448,28 @@ void QVOptionsDialog::updateNaturalPageSizes()
     }
 
     const QMargins margins = ui->verticalLayout->contentsMargins();
-    const int pageWidth = SettingsWidth - margins.left() - margins.right();
+    if (const auto *display = screen()) {
+        settingsWidth = qBound(SettingsMinimumWidth, display->availableGeometry().width() - 24,
+                               SettingsWidth);
+    }
+    const int pageWidth = settingsWidth - margins.left() - margins.right();
     measureForm(ui->generalScrollArea, pageWidth);
     measureForm(ui->mouseScrollArea, pageWidth);
 
     auto *table = ui->shortcutsTable;
-    const int rowHeight = qMax(20, table->fontMetrics().height() + 5);
+    const int rowHeight = qMax(26, table->fontMetrics().height() + 6);
     table->verticalHeader()->setDefaultSectionSize(rowHeight);
     const int headerHeight = table->horizontalHeader()->sizeHint().height();
     const int tableHeight =
             headerHeight + rowHeight * qMin(ShortcutsVisibleRows, table->rowCount());
     const int footerHeight = ui->shortcutsFooter->sizeHint().height()
-            + ui->shortcutFooterSeparator->height() + 2 * ui->shortcutsLayout->spacing();
+            + ui->shortcutFooterSeparator->height() + ui->shortcutSearch->sizeHint().height()
+            + 3 * ui->shortcutsLayout->spacing();
     pageHeights = { ui->generalContent->minimumHeight(), tableHeight + footerHeight,
                     ui->mouse->minimumHeight() };
 
     setProperty("settingsTabWidths", QVariantList{ pageWidth, pageWidth, pageWidth });
-    setProperty("settingsFixedWidth", SettingsWidth);
+    setProperty("settingsFixedWidth", settingsWidth);
     setProperty("settingsTabWidth", pageWidth);
     pageMetricsReady = true;
 }
@@ -286,17 +489,17 @@ void QVOptionsDialog::resizeForCategory(const int categoryIndex)
     }
     categoryTargetHeight = targetHeight;
 
-    if (isVisible() && height() != targetHeight) {
+    if (isVisible() && height() != targetHeight && !QVCocoaFunctions::reduceThumbnailMotion()) {
         categorySizeAnimation->stop();
         setProperty("settingsCategoryTransitionActive", true);
-        categorySizeAnimation->setStartValue(QSize(SettingsWidth, height()));
-        categorySizeAnimation->setEndValue(QSize(SettingsWidth, targetHeight));
+        categorySizeAnimation->setStartValue(QSize(settingsWidth, height()));
+        categorySizeAnimation->setEndValue(QSize(settingsWidth, targetHeight));
         categorySizeAnimation->start();
     } else {
         finishCategoryTransition();
     }
     setProperty("settingsCategoryIndex", categoryIndex);
-    setProperty("settingsCategoryTargetWidth", SettingsWidth);
+    setProperty("settingsCategoryTargetWidth", settingsWidth);
     setProperty("settingsCategoryContentHeight", contentHeight);
 }
 
@@ -315,7 +518,7 @@ void QVOptionsDialog::finishCategoryTransition()
     if (categorySizeAnimation)
         categorySizeAnimation->stop();
     if (categoryTargetHeight > 0)
-        setFixedSize(SettingsWidth, categoryTargetHeight);
+        setFixedSize(settingsWidth, categoryTargetHeight);
     setProperty("settingsCategoryTransitionActive", false);
 }
 
@@ -332,6 +535,7 @@ void QVOptionsDialog::prepareForDisplay()
         windowHandle()->setFlag(Qt::WindowStaysOnTopHint, qvApp->foundOnTopWindow());
     NativeDialogs::applyTheme(this);
     QVCocoaFunctions::configureSettingsToolbar(windowHandle(), ui->categoryTabs);
+    refreshFileAssociations();
     // Measure after AppKit installs the toolbar so the first frame includes
     // its chrome when applying the display's available-height constraint.
     updateNaturalPageSizes();
@@ -553,7 +757,8 @@ void QVOptionsDialog::syncShortcuts()
             auto *heading = new QTableWidgetItem(category);
             heading->setFlags(Qt::ItemIsEnabled);
             QFont font = table->font();
-            font.setWeight(QFont::DemiBold);
+            font.setWeight(QFont::Medium);
+            font.setPointSizeF(qMax(11.0, font.pointSizeF() - 1.0));
             heading->setFont(font);
             table->setItem(row, 0, heading);
             table->setSpan(row, 0, 1, 2);
@@ -583,15 +788,44 @@ void QVOptionsDialog::updateShortcutsTable()
         const QString text =
                 ShortcutManager::stringListToReadableString(transientShortcuts.at(index));
         auto *item = table->item(row, 1);
-        item->setText(text);
+        item->setText(text.isEmpty() ? QStringLiteral("—") : text);
         item->setToolTip(text);
     }
+    filterShortcuts();
+}
+
+void QVOptionsDialog::filterShortcuts()
+{
+    auto *table = ui->shortcutsTable;
+    const QString query = ui->shortcutSearch->text().trimmed();
+    int heading = -1;
+    bool sectionHasMatch = false;
+    for (int row = 0; row < table->rowCount(); ++row) {
+        if (shortcutIndex(table, row) < 0) {
+            if (heading >= 0)
+                table->setRowHidden(heading, !sectionHasMatch);
+            heading = row;
+            sectionHasMatch = false;
+            continue;
+        }
+        const bool matches = table->item(row, 0)->text().contains(query, Qt::CaseInsensitive)
+                || table->item(row, 1)->text().contains(query, Qt::CaseInsensitive);
+        table->setRowHidden(row, !matches);
+        sectionHasMatch |= matches;
+    }
+    if (heading >= 0)
+        table->setRowHidden(heading, !sectionHasMatch);
+    if (table->currentRow() >= 0 && table->isRowHidden(table->currentRow())) {
+        table->clearSelection();
+        table->setCurrentItem(nullptr);
+    }
+    ui->editShortcutButton->setEnabled(shortcutIndex(table, table->currentRow()) >= 0);
 }
 
 void QVOptionsDialog::editShortcut(int row)
 {
     const int index = shortcutIndex(ui->shortcutsTable, row);
-    if (index < 0)
+    if (index < 0 || ui->shortcutsTable->isRowHidden(row))
         return;
 
     const auto getTransientShortcut = [this](int shortcutIndex) {
@@ -653,18 +887,95 @@ void QVOptionsDialog::languageComboBoxCurrentIndexChanged(int index)
     }
 }
 
+bool QVOptionsDialog::eventFilter(QObject *object, QEvent *event)
+{
+    if (object == qApp && event->type() == QEvent::DynamicPropertyChange) {
+        const auto name = static_cast<QDynamicPropertyChangeEvent *>(event)->propertyName();
+        if (name == "fovelleFileAssociationInProgress" && isVisible())
+            refreshFileAssociations();
+        if (name == "fovelleAccessibilityDisplayRevision") {
+            if (pageMetricsReady) {
+                updateNaturalPageSizes();
+                resizeForCategory(ui->categoryTabs->currentIndex());
+            }
+            for (auto *control : ui->stackedWidget->findChildren<QWidget *>())
+                control->update();
+        }
+    }
+    return QDialog::eventFilter(object, event);
+}
+
+void QVOptionsDialog::refreshFileAssociations()
+{
+    using State = QVCocoaFunctions::FileAssociationState;
+    const bool busy = QVCocoaFunctions::isChangingFileAssociations();
+    State state = State::Unknown;
+    if (!busy) {
+        const auto extensions = Qv::setToSortedList(qvApp->getAllFileExtensionList());
+        state = QVCocoaFunctions::readFileAssociations(extensions).state();
+    }
+
+    QString status;
+    switch (state) {
+    case State::None:
+        status = tr("Not set as default");
+        break;
+    case State::Partial:
+        status = tr("Default for some formats");
+        break;
+    case State::All:
+        status = tr("Default for all supported formats");
+        break;
+    case State::Unknown:
+        status = tr("Default status unavailable");
+        break;
+    }
+    ui->associationStatus->setText(busy ? tr("Updating file associations…") : status);
+    ui->associateFormatsButton->setText(state == State::None ? tr("Set as Default")
+                                                             : tr("Associate All"));
+    ui->associateFormatsButton->setFixedSize(ui->associateFormatsButton->sizeHint());
+    ui->associateFormatsButton->setDisabled(busy);
+    ui->associateFormatsButton->setVisible(state != State::All);
+    ui->associationDefaultIndicator->setText(tr("✓ Default"));
+    ui->associationDefaultIndicator->setVisible(state == State::All);
+    ui->associationActions->layout()->activate();
+    ui->associationActions->updateGeometry();
+    if (pageMetricsReady && isVisible()) {
+        updateNaturalPageSizes();
+        resizeForCategory(ui->categoryTabs->currentIndex());
+    }
+}
+
 void QVOptionsDialog::associateSupportedFormats()
 {
-    const auto extensions = Qv::setToSortedList(qvApp->getAllFileExtensionList());
-    const auto result = QVCocoaFunctions::associateAllSupportedFormats(extensions);
+    if (QVCocoaFunctions::isChangingFileAssociations())
+        return;
 
-    const QMessageBox::Icon icon =
-            result.failedExtensions.isEmpty() ? QMessageBox::Information : QMessageBox::Warning;
-    QString message =
-            tr("Associated %1 supported formats with Fovelle.").arg(result.associatedCount);
-    if (!result.failedExtensions.isEmpty())
-        message += tr("\nUnable to associate: %1.").arg(result.failedExtensions.join(", "));
-    NativeDialogs::showMessage(icon, tr("File Associations"), message, QMessageBox::Ok, this);
+    ui->associationFeedback->hide();
+    const QPointer<QVOptionsDialog> dialog(this);
+    const auto extensions = Qv::setToSortedList(qvApp->getAllFileExtensionList());
+    QVCocoaFunctions::associateAllSupportedFormats(
+            extensions, [dialog](QVCocoaFunctions::FileAssociationAttempt result) {
+                if (!dialog)
+                    return;
+                QString feedback;
+                if (result.cancelled)
+                    feedback = tr(
+                            "The system request was cancelled. Earlier changes may still apply.");
+                if (!result.failures.isEmpty()) {
+                    if (!feedback.isEmpty())
+                        feedback += QLatin1Char('\n');
+                    feedback += tr("Some formats could not be updated. %1")
+                                        .arg(result.failures.join(QLatin1Char('\n')));
+                }
+                dialog->refreshFileAssociations();
+                if (feedback.isEmpty() && dialog->ui->associationDefaultIndicator->isHidden())
+                    feedback = tr("The system has not confirmed the change for every format.");
+                dialog->ui->associationFeedback->setText(feedback);
+                dialog->ui->associationFeedback->setVisible(!feedback.isEmpty());
+                dialog->updateNaturalPageSizes();
+                dialog->resizeForCategory(dialog->ui->categoryTabs->currentIndex());
+            });
 }
 
 const Ui::ComboBoxItems<Qv::AfterDelete> QVOptionsDialog::mapAfterDelete()
@@ -685,7 +996,7 @@ const Ui::ComboBoxItems<Qv::SmoothScalingMode> QVOptionsDialog::mapSmoothScaling
 {
     return { { Qv::SmoothScalingMode::Disabled, tr("Disabled") },
              { Qv::SmoothScalingMode::Bilinear, tr("Bilinear") },
-             { Qv::SmoothScalingMode::Expensive, tr("Expensive") } };
+             { Qv::SmoothScalingMode::Expensive, tr("High Quality") } };
 }
 
 const Ui::ComboBoxItems<Qv::Theme> QVOptionsDialog::mapTheme()

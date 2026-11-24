@@ -21,6 +21,7 @@
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QHash>
+#include <QMap>
 #include <QSet>
 #include <QImageReader>
 #include <QLocale>
@@ -5830,44 +5831,206 @@ QList<OpenWith::OpenWithItem> QVCocoaFunctions::getOpenWithItems(const QString &
     return listOfOpenWithItems;
 }
 
-QVCocoaFunctions::FileAssociationResult
-QVCocoaFunctions::associateAllSupportedFormats(const QStringList &extensions, const bool dryRun)
-{
-    FileAssociationResult result;
-    QSet<QByteArray> seen;
-    NSString *bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
+namespace {
+enum class DefaultViewer { Unknown, Fovelle, Other };
 
+struct AssociationTarget
+{
+    QString extension;
+    QString identifier;
+    DefaultViewer viewer;
+};
+
+QList<AssociationTarget> associationTargets(const QStringList &extensions)
+{
+    QList<AssociationTarget> targets;
+    QSet<QByteArray> seen;
+    QHash<QString, DefaultViewer> viewers;
+    NSString *bundleID = NSBundle.mainBundle.bundleIdentifier;
     for (const QString &extension : extensions) {
-        const QByteArray normalized = normalizedExtension(extension.toUtf8());
+        const QByteArray normalized = normalizedExtension(extension.trimmed().toUtf8());
         if (normalized.isEmpty() || seen.contains(normalized))
             continue;
         seen.insert(normalized);
-        ++result.requestedCount;
 
-        if (dryRun) {
-            ++result.associatedCount;
-            continue;
+        UTType *type =
+                [UTType typeWithFilenameExtension:QString::fromUtf8(normalized).toNSString()];
+        const QString identifier = type ? QString::fromNSString(type.identifier) : QString();
+        DefaultViewer viewer = viewers.value(identifier, DefaultViewer::Unknown);
+        if (!identifier.isEmpty() && !viewers.contains(identifier)) {
+            NSURL *url = [NSWorkspace.sharedWorkspace URLForApplicationToOpenContentType:type];
+            NSString *handlerID = url ? [NSBundle bundleWithURL:url].bundleIdentifier : nil;
+            if (handlerID.length && bundleID.length)
+                viewer = [handlerID isEqualToString:bundleID] ? DefaultViewer::Fovelle
+                                                              : DefaultViewer::Other;
+            else if (!url && type.declared)
+                viewer = DefaultViewer::Other;
+            viewers.insert(identifier, viewer);
         }
+        targets.append({ QString::fromUtf8(normalized), identifier, viewer });
+    }
+    return targets;
+}
 
-        NSString *tag = [NSString stringWithUTF8String:normalized.constData()];
-        UTType *type = [UTType typeWithTag:tag
-                                  tagClass:UTTagClassFilenameExtension
-                          conformingToType:nil];
-        NSString *identifier = type.identifier;
-        if (!bundleIdentifier || !identifier) {
-            result.failedExtensions.append(QString::fromUtf8(normalized));
-            continue;
-        }
+constexpr auto AssociationProgressProperty = "fovelleFileAssociationInProgress";
 
-        const OSStatus status = LSSetDefaultRoleHandlerForContentType(
-                (CFStringRef)identifier, kLSRolesViewer, (CFStringRef)bundleIdentifier);
-        if (status == noErr)
-            ++result.associatedCount;
-        else
-            result.failedExtensions.append(QString::fromUtf8(normalized));
+struct AssociationChange
+{
+    QList<QPair<QString, QStringList>> pending;
+    QVCocoaFunctions::FileAssociationAttempt result;
+    std::function<void(QVCocoaFunctions::FileAssociationAttempt)> completion;
+    QVCocoaFunctions::FileAssociationRequest request;
+    qsizetype next{ 0 };
+};
+
+void continueAssociation(const std::shared_ptr<AssociationChange> &change)
+{
+    if (change->result.cancelled || change->next == change->pending.size()) {
+        if (auto *app = QCoreApplication::instance())
+            app->setProperty(AssociationProgressProperty, false);
+        change->completion(std::move(change->result));
+        return;
     }
 
-    return result;
+    const auto &target = change->pending.at(change->next++);
+    const QStringList extensions = target.second;
+    change->request(target.first, [change, extensions](QString reason, bool cancelled) {
+        if (cancelled)
+            change->result.cancelled = true;
+        else if (!reason.isEmpty())
+            change->result.failures.append(extensions.join(", ") + ": " + reason);
+        continueAssociation(change);
+    });
+}
+
+void requestDefaultViewer(const QString &identifier, std::function<void(QString, bool)> completion)
+{
+    @autoreleasepool {
+        UTType *type = [UTType typeWithIdentifier:identifier.toNSString()];
+        [NSWorkspace.sharedWorkspace
+                setDefaultApplicationAtURL:NSBundle.mainBundle.bundleURL
+                         toOpenContentType:type
+                         completionHandler:^(NSError *error) {
+                             const bool cancelled = error
+                                     && (([error.domain isEqualToString:NSCocoaErrorDomain]
+                                          && error.code == NSUserCancelledError)
+                                         || ([error.domain isEqualToString:NSOSStatusErrorDomain]
+                                             && error.code == userCanceledErr));
+                             const QString reason = error
+                                     ? QString::fromNSString(error.localizedDescription)
+                                     : QString();
+                             dispatch_async(dispatch_get_main_queue(),
+                                            ^{ completion(reason, cancelled); });
+                         }];
+    }
+}
+} // namespace
+
+QVCocoaFunctions::FileAssociationState QVCocoaFunctions::FileAssociationStatus::state() const
+{
+    if (associated && other)
+        return FileAssociationState::Partial;
+    if (unknown || (!associated && !other))
+        return FileAssociationState::Unknown;
+    return associated ? FileAssociationState::All : FileAssociationState::None;
+}
+
+QVCocoaFunctions::FileAssociationStatus
+QVCocoaFunctions::readFileAssociations(const QStringList &extensions)
+{
+    @autoreleasepool {
+        FileAssociationStatus status;
+        for (const auto &target : associationTargets(extensions)) {
+            switch (target.viewer) {
+            case DefaultViewer::Fovelle:
+                ++status.associated;
+                break;
+            case DefaultViewer::Other:
+                ++status.other;
+                break;
+            case DefaultViewer::Unknown:
+                ++status.unknown;
+                break;
+            }
+        }
+        return status;
+    }
+}
+
+bool QVCocoaFunctions::isChangingFileAssociations()
+{
+    const auto *app = QCoreApplication::instance();
+    return app && app->property(AssociationProgressProperty).toBool();
+}
+
+void QVCocoaFunctions::associateAllSupportedFormats(
+        const QStringList &extensions, std::function<void(FileAssociationAttempt)> completion,
+        FileAssociationRequest request)
+{
+    auto *app = QCoreApplication::instance();
+    if (!app || isChangingFileAssociations())
+        return;
+
+    @autoreleasepool {
+        auto change = std::make_shared<AssociationChange>();
+        change->completion = std::move(completion);
+        const bool canRequest = request || NSBundle.mainBundle.bundleIdentifier.length;
+        change->request = request ? std::move(request) : requestDefaultViewer;
+        QMap<QString, QStringList> missing;
+        for (const auto &target : associationTargets(extensions)) {
+            if (target.viewer == DefaultViewer::Fovelle)
+                continue;
+            if (target.identifier.isEmpty() || !canRequest)
+                change->result.failures.append(target.extension);
+            else
+                missing[target.identifier].append(target.extension);
+        }
+        for (auto entry = missing.cbegin(); entry != missing.cend(); ++entry)
+            change->pending.append({ entry.key(), entry.value() });
+        app->setProperty(AssociationProgressProperty, true);
+        continueAssociation(change);
+    }
+}
+
+bool QVCocoaFunctions::increaseSettingsContrast()
+{
+    return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldIncreaseContrast;
+}
+
+QImage QVCocoaFunctions::settingsSwitchImage(const QWindow *window, bool checked, bool enabled,
+                                             qreal dpr)
+{
+    @autoreleasepool {
+        auto *control = [[[NSSwitch alloc] initWithFrame:NSZeroRect] autorelease];
+        control.controlSize = NSControlSizeMini;
+        control.state = checked ? NSControlStateValueOn : NSControlStateValueOff;
+        control.enabled = enabled;
+        auto *view = window ? reinterpret_cast<NSView *>(window->winId()) : nil;
+        control.appearance = view.window.effectiveAppearance ?: NSApp.effectiveAppearance;
+        const NSSize size = control.fittingSize;
+        control.frame = NSMakeRect(0, 0, size.width, size.height);
+        const auto draw = ^{
+            auto *bitmap =
+                    [[[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nullptr
+                                                             pixelsWide:qCeil(size.width * dpr)
+                                                             pixelsHigh:qCeil(size.height * dpr)
+                                                          bitsPerSample:8
+                                                        samplesPerPixel:4
+                                                               hasAlpha:YES
+                                                               isPlanar:NO
+                                                         colorSpaceName:NSDeviceRGBColorSpace
+                                                            bytesPerRow:0
+                                                           bitsPerPixel:0] autorelease];
+            bitmap.size = size;
+            [control cacheDisplayInRect:control.bounds toBitmapImageRep:bitmap];
+            QImage image = imageFromCGImage(bitmap.CGImage);
+            image.setDevicePixelRatio(dpr);
+            return image;
+        };
+        __block QImage result;
+        [control.effectiveAppearance performAsCurrentDrawingAppearance:^{ result = draw(); }];
+        return result;
+    }
 }
 
 QByteArray QVCocoaFunctions::getIccProfileForWindow(const QWindow *window)

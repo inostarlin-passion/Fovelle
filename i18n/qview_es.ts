@@ -1473,6 +1473,146 @@ No se pudo asociar: %1.</translation>
         <source>Edit…</source>
         <translation>Editar…</translation>
     </message>
+    <message>
+        <source>Appearance</source>
+        <translation>Apariencia</translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation>Idioma</translation>
+    </message>
+    <message>
+        <source>Checkerboard background</source>
+        <translation>Fondo de tablero</translation>
+    </message>
+    <message>
+        <source>Smooth scaling</source>
+        <translation>Escalado suave</translation>
+    </message>
+    <message>
+        <source>Direction</source>
+        <translation>Dirección</translation>
+    </message>
+    <message>
+        <source>Interval</source>
+        <translation>Intervalo</translation>
+    </message>
+    <message>
+        <source>After deleting files</source>
+        <translation>Después de borrar archivos</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>Comprobar actualizaciones</translation>
+    </message>
+    <message>
+        <source>High Quality</source>
+        <translation>Alta calidad</translation>
+    </message>
+    <message>
+        <source>Double Click</source>
+        <translation>Doble clic</translation>
+    </message>
+    <message>
+        <source>Drag</source>
+        <translation>Arrastrar</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>Clic central</translation>
+    </message>
+    <message>
+        <source>Vertical Scroll</source>
+        <translation>Desplazamiento vertical</translation>
+    </message>
+    <message>
+        <source>Horizontal Scroll</source>
+        <translation>Desplazamiento horizontal</translation>
+    </message>
+    <message>
+        <source>sec</source>
+        <translation>s</translation>
+    </message>
+    <message>
+        <source>%1 + Double Click</source>
+        <translation>%1 + Doble clic</translation>
+    </message>
+    <message>
+        <source>%1 + Drag</source>
+        <translation>%1 + Arrastrar</translation>
+    </message>
+    <message>
+        <source>%1 + Middle Click</source>
+        <translation>%1 + Clic central</translation>
+    </message>
+    <message>
+        <source>%1 + Vertical Scroll</source>
+        <translation>%1 + Desplazamiento vertical</translation>
+    </message>
+    <message>
+        <source>%1 + Horizontal Scroll</source>
+        <translation>%1 + Desplazamiento horizontal</translation>
+    </message>
+    <message>
+        <source>Scroll Wheel &amp; Trackpad</source>
+        <translation>Rueda y trackpad</translation>
+    </message>
+    <message>
+        <source>Software Updates</source>
+        <translation>Actualizaciones de software</translation>
+    </message>
+    <message>
+        <source>Search shortcuts</source>
+        <translation>Buscar atajos</translation>
+    </message>
+    <message>
+        <source>Applies to all supported image formats.</source>
+        <translation>Se aplica a todos los formatos de imagen compatibles.</translation>
+    </message>
+    <message>
+        <source>Not set as default</source>
+        <translation>No es el visor predeterminado</translation>
+    </message>
+    <message>
+        <source>Default for some formats</source>
+        <translation>Predeterminado para algunos formatos</translation>
+    </message>
+    <message>
+        <source>Default for all supported formats</source>
+        <translation>Predeterminado para todos los formatos compatibles</translation>
+    </message>
+    <message>
+        <source>Default status unavailable</source>
+        <translation>Estado del visor predeterminado no disponible</translation>
+    </message>
+    <message>
+        <source>Updating file associations…</source>
+        <translation>Actualizando asociaciones de archivos…</translation>
+    </message>
+    <message>
+        <source>Set as Default</source>
+        <translation>Establecer como predeterminado</translation>
+    </message>
+    <message>
+        <source>Associate All</source>
+        <translation>Asociar todos</translation>
+    </message>
+    <message>
+        <source>✓ Default</source>
+        <translation>✓ Predeterminado</translation>
+    </message>
+    <message>
+        <source>The system request was cancelled. Earlier changes may still apply.</source>
+        <translation>Se canceló la solicitud del sistema. Es posible que se hayan aplicado cambios anteriores.</translation>
+    </message>
+    <message>
+        <source>Some formats could not be updated. %1</source>
+        <translation>No se pudieron actualizar algunos formatos. %1</translation>
+    </message>
+    <message>
+        <source>The system has not confirmed the change for every format.</source>
+        <translation>El sistema aún no ha confirmado el cambio para todos los formatos.</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>

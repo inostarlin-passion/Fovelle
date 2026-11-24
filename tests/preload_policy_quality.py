@@ -96,7 +96,7 @@ def main() -> int:
     check(
         checks,
         "PRELOAD-STATIC-006",
-        "SettingsWidth = 512" in options_dialog
+        "SettingsWidth = 500" in options_dialog
         and "QVariantList{ pageWidth, pageWidth, pageWidth }" in options_dialog
         and "horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch)" in options_dialog,
         "the settings pages share a fixed width and the shortcut columns stretch into it",

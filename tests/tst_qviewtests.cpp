@@ -26,6 +26,7 @@
 #include <QPropertyAnimation>
 #include <QCursor>
 #include <QStyleOptionSlider>
+#include <QStyleOptionSpinBox>
 #include <QMouseEvent>
 #include <QElapsedTimer>
 #include <QEventLoop>
@@ -90,6 +91,7 @@
 #include "qvimageloader.h"
 #include "qvmovie.h"
 #include "qvoptionsdialog.h"
+#include "qvsettingswidgets.h"
 #include "qvshortcutdialog.h"
 #include "scrollhelper.h"
 #include "settingsmanager.h"
@@ -258,7 +260,8 @@ private slots:
     void testAutoUpdateCheckLabelIsRenamed();
     void testSettingsRenamedLabelsAndRemovedMouseOptions();
     void testRemovedMouseSettingsMigrateToFixedDefaults();
-    void testAssociateAllSupportedFormatsDryRun();
+    void testFileAssociationStatusFromSystem();
+    void testFileAssociationSerialRequests();
     void testPreferencesDefaultsAndRemovedControls();
     void testSettingsGeneralGroupsAndDefaults();
     void testSettingsCooldownOptionIsRemovedAndDefaultEnabled();
@@ -623,6 +626,7 @@ private slots:
     void testSettingsAssociateButtonUsesNativeStyle();
     void testSettingsEveryTabFitsEveryLanguage();
     void testSettingsNativeAppearance();
+    void testSettingsControlsKeepBindingsAndKeyboard();
     void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
     void testHelpMenuContract();
@@ -1209,12 +1213,17 @@ static QString settingsFormGeometryFailure(QWidget *page)
 {
     int labelLeft = -1;
     int popupRight = -1;
-    int popupWidth = -1;
+
     for (auto *form : page->findChildren<QGridLayout *>()) {
         for (int row = 0; row < form->rowCount(); ++row) {
-            auto *label = qobject_cast<QLabel *>(form->itemAtPosition(row, 0)->widget());
-            auto *field = form->itemAtPosition(row, 1)->widget();
-            if (!label || label->buddy() != field)
+            auto *labelItem = form->itemAtPosition(row, 0);
+            auto *fieldItem = form->itemAtPosition(row, 1);
+            if (!labelItem || !fieldItem || labelItem == fieldItem)
+                continue;
+            auto *label = qobject_cast<QLabel *>(labelItem->widget());
+            auto *field = fieldItem->widget();
+            if (!label || !label->buddy()
+                || (label->buddy() != field && !field->isAncestorOf(label->buddy())))
                 return QStringLiteral("Missing form label for ") + field->objectName();
 
             const QRect labelRect(label->mapTo(page, QPoint()), label->size());
@@ -1227,17 +1236,18 @@ static QString settingsFormGeometryFailure(QWidget *page)
             if (labelRect.left() != labelLeft)
                 return QStringLiteral("Misaligned label for ") + field->objectName();
 
-            if (auto *popup = qobject_cast<QComboBox *>(field)) {
-                if (popupRight == -1) {
+            if (qobject_cast<QComboBox *>(field)) {
+                if (popupRight == -1)
                     popupRight = fieldRect.right();
-                    popupWidth = fieldRect.width();
-                }
-                if (fieldRect.right() != popupRight || popup->width() != popupWidth)
-                    return QStringLiteral("Misaligned popup ") + field->objectName();
+                if (fieldRect.right() != popupRight)
+                    return QStringLiteral("Misaligned popup %1 at %2, expected %3")
+                            .arg(field->objectName())
+                            .arg(fieldRect.right())
+                            .arg(popupRight);
             }
         }
     }
-    return popupWidth > 0 ? QString() : QStringLiteral("No settings popup was checked");
+    return popupRight > 0 ? QString() : QStringLiteral("No settings popup was checked");
 }
 
 class ScopedEnvironmentValue
@@ -4982,7 +4992,7 @@ void FeatureTests::testAutoUpdateCheckLabelIsRenamed()
     QVOptionsDialog dialog;
     auto *label = dialog.findChild<QLabel *>(QStringLiteral("updateFrequencyLabel"));
     QVERIFY(label);
-    QCOMPARE(label->text(), QStringLiteral("Auto update check:"));
+    QCOMPARE(label->text(), QStringLiteral("Check for updates"));
     QVERIFY(!label->text().contains(QStringLiteral("Automatically check for updates")));
 }
 
@@ -5014,9 +5024,9 @@ void FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()
     QVERIFY(reuseWindow);
     QVERIFY(afterDeleteLabel);
     QVERIFY(afterDelete);
-    QCOMPARE(checkerboard->accessibleName(), QStringLiteral("Use checkerboard background"));
+    QCOMPARE(checkerboard->accessibleName(), QStringLiteral("Checkerboard background"));
     QCOMPARE(reuseWindow->accessibleName(), QStringLiteral("Open images in the same window"));
-    QCOMPARE(afterDeleteLabel->text(), QStringLiteral("After deleting files:"));
+    QCOMPARE(afterDeleteLabel->text(), QStringLiteral("After deleting files"));
     const int noActionIndex = afterDelete->findData(static_cast<int>(Qv::AfterDelete::DoNothing));
     QVERIFY(noActionIndex >= 0);
     QCOMPARE(afterDelete->itemText(noActionIndex), QStringLiteral("No Action"));
@@ -5077,27 +5087,54 @@ void FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()
              Qv::AdjacentPreloadDistance);
 }
 
-// TC-PREFERENCES-FORMATS-ASSOCIATE
-// Test purpose: verify the file-association operation is deterministic and
-// non-invasive in its unit-test dry-run mode.
-// Preconditions: the Cocoa bridge is linked and Launch Services integration
-// is available to the production implementation.
-// Input data: duplicate, mixed-case, dotted and undotted extensions.
-// Steps: invoke associateAllSupportedFormats with dryRun=true and inspect the
-// returned counts and failure list.
-// Expected result: extensions are normalized and de-duplicated; every valid
-// extension is counted as associated and no real Launch Services registration
-// occurs.
-// Postcondition: the user's default application associations are unchanged.
-void FeatureTests::testAssociateAllSupportedFormatsDryRun()
+void FeatureTests::testFileAssociationStatusFromSystem()
 {
-    const auto result = QVCocoaFunctions::associateAllSupportedFormats(
-            { QStringLiteral(".JPG"), QStringLiteral("jpg"), QStringLiteral("PNG"),
-              QStringLiteral(""), QStringLiteral(".") },
-            true);
-    QCOMPARE(result.requestedCount, 2);
-    QCOMPARE(result.associatedCount, 2);
-    QVERIFY(result.failedExtensions.isEmpty());
+    using State = QVCocoaFunctions::FileAssociationState;
+    using Status = QVCocoaFunctions::FileAssociationStatus;
+    const auto status = QVCocoaFunctions::readFileAssociations({ ".JPG", "jpg", "PNG", " ", "." });
+    QCOMPARE(status.associated + status.other + status.unknown, 2);
+    QCOMPARE((Status{ 0, 2, 0 }.state()), State::None);
+    QCOMPARE((Status{ 1, 1, 0 }.state()), State::Partial);
+    QCOMPARE((Status{ 2, 0, 0 }.state()), State::All);
+    QCOMPARE((Status{ 2, 0, 1 }.state()), State::Unknown);
+    QCOMPARE((Status{ 0, 2, 1 }.state()), State::Unknown);
+    QCOMPARE(Status{ }.state(), State::Unknown);
+}
+
+void FeatureTests::testFileAssociationSerialRequests()
+{
+    using Attempt = QVCocoaFunctions::FileAssociationAttempt;
+    struct Observation
+    {
+        QStringList launched;
+        std::optional<Attempt> result;
+        bool duplicateRan{ false };
+    };
+    const auto observed = std::make_shared<Observation>();
+    const QStringList formats{ "png", "jpg", "jpeg", "gif", "tiff" };
+    const auto request = [observed](const QString &id, auto finish) {
+        observed->launched.append(id);
+        const int count = observed->launched.count();
+        QTimer::singleShot(0, qApp, [count, finish] {
+            finish(count == 2 ? QStringLiteral("simulated failure") : QString(), count == 3);
+        });
+    };
+
+    QVCocoaFunctions::associateAllSupportedFormats(
+            formats, [observed](Attempt attempt) { observed->result = std::move(attempt); },
+            request);
+    QVERIFY(QVCocoaFunctions::isChangingFileAssociations());
+    QCOMPARE(observed->launched.count(), 1);
+    QVCocoaFunctions::associateAllSupportedFormats(
+            formats, [observed](Attempt) { observed->duplicateRan = true; }, request);
+    QTRY_VERIFY(observed->result);
+    QVERIFY(!observed->duplicateRan);
+    QVERIFY(!QVCocoaFunctions::isChangingFileAssociations());
+    QCOMPARE(observed->launched.count(), 3);
+    QCOMPARE(QSet<QString>(observed->launched.cbegin(), observed->launched.cend()).size(), 3);
+    QVERIFY(observed->result->cancelled);
+    QCOMPARE(observed->result->failures.size(), 1);
+    QVERIFY(observed->result->failures.first().contains(QStringLiteral("simulated failure")));
 }
 
 // TC-PREFERENCES-DEFAULTS
@@ -5190,7 +5227,7 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
     QVERIFY(theme);
     auto *appearanceLabel = dialog.findChild<QLabel *>("appearanceLabel");
     QVERIFY(appearanceLabel);
-    QCOMPARE(appearanceLabel->text(), QStringLiteral("Appearance:"));
+    QCOMPARE(appearanceLabel->text(), QStringLiteral("Appearance"));
     QCOMPARE(theme->itemText(0), QStringLiteral("Light"));
     QCOMPARE(theme->itemText(1), QStringLiteral("Dark"));
     auto *frequency = dialog.findChild<QComboBox *>("updateFrequencyComboBox");
@@ -5203,7 +5240,7 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
     QCOMPARE(frequency->currentData().toInt(), static_cast<int>(Qv::UpdateCheckFrequency::Weekly));
     auto *associateButton = dialog.findChild<QPushButton *>("associateFormatsButton");
     QVERIFY(associateButton);
-    QCOMPARE(associateButton->text(), QStringLiteral("Associate all supported formats"));
+    QVERIFY(dialog.findChild<QWidget *>("fileAssociations")->isAncestorOf(associateButton));
 }
 
 // TC-SETTINGS-GROUPS-DEFAULTS
@@ -5241,7 +5278,8 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
             "reuseWindowCheckbox" } },
         { "slideshow", { "slideshowDirectionComboBox", "slideshowTimerSpinBox" } },
         { "fileManagement", { "afterDeletionComboBox", "askDeleteCheckbox" } },
-        { "updatesAssociations", { "updateFrequencyComboBox", "associateFormatsButton" } },
+        { "softwareUpdates", { "updateFrequencyComboBox" } },
+        { "fileAssociations", { "associateFormatsButton", "associationStatus" } },
     };
     auto *layout = generalContent->layout();
     QCOMPARE(layout->count(), expectedGroups.size());
@@ -12793,7 +12831,7 @@ void ShortcutSettingsTests::testShortcutCategoriesConflictAndRestore()
     QTRY_VERIFY(table->isVisible());
 
     QCOMPARE(table->columnCount(), 2);
-    QVERIFY(!table->alternatingRowColors());
+    QVERIFY(table->alternatingRowColors());
     QCOMPARE(table->frameShape(), QFrame::NoFrame);
     int categories = 0;
     int actions = 0;
@@ -12810,6 +12848,21 @@ void ShortcutSettingsTests::testShortcutCategoriesConflictAndRestore()
     }
     QCOMPARE(categories, 5);
     QCOMPARE(actions, qvApp->getShortcutManager().getShortcutsList().size());
+    auto *search = dialog.findChild<QLineEdit *>("shortcutSearch");
+    QVERIFY(search);
+    bool unboundFound = false;
+    for (int row = 0; row < table->rowCount(); ++row) {
+        const auto *keys = table->item(row, 1);
+        unboundFound |= keys && keys->text() == QStringLiteral("—");
+    }
+    QVERIFY(unboundFound);
+    table->setCurrentCell(1, 0);
+    search->setText(QStringLiteral("Copy"));
+    QVERIFY(table->isRowHidden(1));
+    QVERIFY(!edit->isEnabled());
+    search->setText(changed.toString(QKeySequence::NativeText));
+    QVERIFY(!table->isRowHidden(1));
+    search->clear();
     QCOMPARE(table->item(1, 1)->text(), changed.toString(QKeySequence::NativeText));
     table->setCurrentCell(1, 0);
     QVERIFY(edit->isEnabled());
@@ -12954,7 +13007,7 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     for (int index = 0; index < tabs->count(); ++index) {
         tabs->setCurrentIndex(index);
         QTRY_VERIFY(!dialog.property("settingsCategoryTransitionActive").toBool());
-        QCOMPARE(dialog.width(), 512);
+        QCOMPARE(dialog.width(), 500);
         QCOMPARE(dialog.minimumWidth(), dialog.maximumWidth());
         QCOMPARE(stack->currentIndex(), index);
         const int height = dialog.property("settingsCategoryContentHeight").toInt();
@@ -13102,7 +13155,7 @@ void WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()
     auto *mouse = dialog.findChild<QScrollArea *>("mouseScrollArea");
     QVERIFY(general);
     QVERIFY(mouse);
-    QCOMPARE(general->widget()->layout()->count(), 5);
+    QCOMPARE(general->widget()->layout()->count(), 6);
     QCOMPARE(mouse->widget()->layout()->count(), 3);
     QCOMPARE(general->widget()->layout()->spacing(), mouse->widget()->layout()->spacing());
     for (auto *page : { general, mouse }) {
@@ -13111,7 +13164,8 @@ void WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()
         for (auto *form : forms) {
             QVERIFY(form->verticalSpacing() <= 4);
             for (int row = 0; row < form->rowCount(); ++row)
-                QCOMPARE(form->rowMinimumHeight(row), 24);
+                if (form->itemAtPosition(row, 0) != form->itemAtPosition(row, 1))
+                    QCOMPARE(form->rowMinimumHeight(row), 32);
         }
     }
 }
@@ -13121,7 +13175,7 @@ void WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()
     QVOptionsDialog dialog;
     auto *button = dialog.findChild<QPushButton *>("associateFormatsButton");
     QVERIFY(button);
-    QVERIFY(dialog.findChild<QWidget *>("updatesAssociations")->isAncestorOf(button));
+    QVERIFY(dialog.findChild<QWidget *>("fileAssociations")->isAncestorOf(button));
     QVERIFY(button->styleSheet().isEmpty());
     QVERIFY(!button->isFlat());
     QVERIFY(!button->autoDefault());
@@ -13189,9 +13243,11 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             if (widget->objectName().isEmpty() || widget->isHidden() || !isInspectable(widget))
                 continue;
 
-            const QRect mapped(widget->mapTo(scrollArea->widget(), QPoint(0, 0)), widget->size());
-            QVERIFY2(scrollArea->widget()->rect().contains(mapped),
-                     qPrintable(language + QStringLiteral(": ") + widget->objectName()));
+            const auto withinPage = [widget, scrollArea] {
+                const auto *page = scrollArea->widget();
+                return page->rect().contains(QRect(widget->mapTo(page, QPoint()), widget->size()));
+            };
+            QTRY_VERIFY_WITH_TIMEOUT(withinPage(), 1000);
             auto *item = findLayoutItemForWidget(pageLayout, widget, findLayoutItemForWidget);
             QVERIFY2(
                     item,
@@ -13263,7 +13319,8 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             tabs->setCurrentIndex(0);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
                                      2500);
-            QCOMPARE(dialog.width(), 512);
+            QCOMPARE(dialog.width(), 500);
+            QCoreApplication::processEvents();
             verifyScrollPage(general, language);
             const QString generalFailure = settingsFormGeometryFailure(general->widget());
             QVERIFY2(generalFailure.isEmpty(), qPrintable(language + ": " + generalFailure));
@@ -13279,7 +13336,7 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             tabs->setCurrentIndex(1);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
                                      2500);
-            QCOMPARE(dialog.width(), 512);
+            QCOMPARE(dialog.width(), 500);
             QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
             QVERIFY(!table->horizontalHeader()->stretchLastSection());
             QCOMPARE(table->horizontalHeader()->sectionResizeMode(0), QHeaderView::Stretch);
@@ -13304,7 +13361,7 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             tabs->setCurrentIndex(2);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
                                      2500);
-            QCOMPARE(dialog.width(), 512);
+            QCOMPARE(dialog.width(), 500);
             verifyScrollPage(mouse, language);
             const QString mouseFailure = settingsFormGeometryFailure(mouse->widget());
             QVERIFY2(mouseFailure.isEmpty(), qPrintable(language + ": " + mouseFailure));
@@ -13342,11 +13399,17 @@ void WindowBehaviorTests::testSettingsNativeAppearance()
         QTRY_COMPARE(QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
                      QString::fromLatin1(appearance));
 
+        const auto off =
+                QVCocoaFunctions::settingsSwitchImage(dialog.windowHandle(), false, true, 2);
+        const auto on = QVCocoaFunctions::settingsSwitchImage(dialog.windowHandle(), true, true, 2);
+        QVERIFY(!off.isNull());
+        QVERIFY(!on.isNull());
+        QVERIFY(off != on);
         constexpr const char *panes[] = { "general", "shortcuts", "mouse-trackpad" };
         for (int index = 0; index < tabs->count(); ++index) {
             tabs->setCurrentIndex(index);
             QTRY_VERIFY(!dialog.property("settingsCategoryTransitionActive").toBool());
-            QCOMPARE(dialog.width(), 512);
+            QCOMPARE(dialog.width(), 500);
             QVERIFY(!dialog.grab().isNull());
             if (!output.isEmpty()) {
                 QTest::qWait(180);
@@ -13360,6 +13423,59 @@ void WindowBehaviorTests::testSettingsNativeAppearance()
         }
         dialog.close();
     }
+}
+
+void WindowBehaviorTests::testSettingsControlsKeepBindingsAndKeyboard()
+{
+    ScopedOptionValues options({ { "checkerboardbackground", false }, { "slideshowtimer", 5.0 } });
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
+    auto *toggle = dialog.findChild<QCheckBox *>("checkerboardBackgroundCheckbox");
+    auto *spin = dialog.findChild<QDoubleSpinBox *>("slideshowTimerSpinBox");
+    auto *unit = dialog.findChild<QLabel *>("slideshowIntervalUnit");
+    auto *action = dialog.findChild<QPushButton *>("associateFormatsButton");
+    auto *status = dialog.findChild<QLabel *>("associationStatus");
+    QVERIFY(tabs && toggle && spin && unit && action && status);
+    QVERIFY(dynamic_cast<QVSettingsSwitch *>(toggle));
+    QCOMPARE(spin->minimum(), 0.1);
+    QCOMPARE(spin->maximum(), 999.9);
+    QCOMPARE(spin->singleStep(), 0.1);
+    QCOMPARE(spin->decimals(), 1);
+    QVERIFY(spin->suffix().isEmpty());
+    QVERIFY(!unit->text().isEmpty());
+    tabs->setCurrentIndex(0);
+    dialog.show();
+    dialog.activateWindow();
+    QTRY_VERIFY(dialog.isActiveWindow());
+    QVERIFY(!status->text().isEmpty());
+
+    toggle->setFocus();
+    QTest::keyClick(toggle, Qt::Key_Space);
+    QVERIFY(qvApp->getSettingsManager().getBoolean("checkerboardbackground"));
+    QStyleOptionSpinBox step;
+    step.initFrom(spin);
+    step.frame = spin->hasFrame();
+    step.buttonSymbols = spin->buttonSymbols();
+    step.subControls = QStyle::SC_SpinBoxUp | QStyle::SC_SpinBoxDown;
+    const QRect up =
+            spin->style()->subControlRect(QStyle::CC_SpinBox, &step, QStyle::SC_SpinBoxUp, spin);
+    QVERIFY(up.isValid());
+    QTest::mouseClick(spin, Qt::LeftButton, Qt::NoModifier, up.center());
+    QCOMPARE(spin->value(), 5.1);
+    spin->setValue(8.4);
+    QCOMPARE(QSettings().value("options/slideshowtimer").toDouble(), 8.4);
+
+    constexpr auto progress = "fovelleFileAssociationInProgress";
+    const QVariant previous = qApp->property(progress);
+    const auto restore = qScopeGuard([previous] { qApp->setProperty(progress, previous); });
+    qApp->setProperty(progress, true);
+    QVERIFY(!action->isEnabled());
+    QCOMPARE(status->text(), QStringLiteral("Updating file associations…"));
+    qApp->setProperty(progress, false);
+
+    QTest::keyClick(&dialog, Qt::Key_W, Qt::ControlModifier);
+    QTRY_VERIFY(!dialog.isVisible());
 }
 
 // TC-MAC-MENU-LOCALIZATION

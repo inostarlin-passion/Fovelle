@@ -1,3 +1,42 @@
+# 按方案优化 macOS 设置窗口的完成报告
+
+2026-11-25 在 Apple M3 Pro、macOS 27.0.1、Qt 6.12.0 和 Cocoa 的 Release 构建中验证。最终默认 CTest **13/13 通过**，耗时 95.52 秒。 [技术设计](technical_design_document.md) · [验收规范](test_case_specification.md) · [最终回归日志](../build-thumbnail-release/test-results/settings-form/verified-ctest.log)
+
+## 实现文件
+
+- 设置页布局与表单组件见 [qvoptionsdialog.ui](../src/qvoptionsdialog.ui)、[qvoptionsdialog.cpp](../src/qvoptionsdialog.cpp) 和 [qvsettingswidgets.h](../src/qvsettingswidgets.h)。三页共用宽度和样式。开关使用 AppKit 的迷你开关绘制，Qt 保留键盘事件和可选中状态。数字输入沿用 SpinBox 的解析与步进，标签单独显示单位。
+- [qvcocoafunctions.mm](../src/qvcocoafunctions.mm) 读取系统默认应用，按唯一内容类型串行发送授权请求，并返回失败或取消结果。界面把读取结果作为状态来源。
+- 五种语言沿用原有翻译机制。CMake 注册设置布局、快捷键和数据模型三个专项测试。 [QtTest](../tests/tst_qviewtests.cpp) · [CTest 注册](../tests/CMakeLists.txt)
+
+## 验收结果
+
+| 编号 | 结果 | 核验 |
+| --- | --- | --- |
+| SF01 | 通过 | 三段原生顶部导航保留。标准场景宽 500 pt，切换高度随内容变化。五种语言布局、2× 缩放和首次居中通过。 [设置专项](../build-thumbnail-release/test-results/settings-form/verified-layout.log) · [缩放](../build-thumbnail-release/test-results/settings-form/verified-scaled.log) · [窗口](../build-thumbnail-release/test-results/settings-form/verified-window.log) |
+| SF02 | 通过 | General 六组和 Mouse 三组使用圆角分组、轻量菜单、右侧控件和细分隔。步进按钮在实测点击后把 5.0 改为 5.1，原范围、精度和持久化键均通过。AppKit 开关的开启与关闭图像不同，Space 可更新原设置键。 [设置专项](../build-thumbnail-release/test-results/settings-form/verified-layout.log) |
+| SF03 | 通过 | 按动作名和原生快捷键符号查找，未绑定显示为破折号。隐藏的动作无法编辑，清空搜索后原绑定与编辑索引一致，双击、冲突、取消和恢复默认通过。 [快捷键回归](../build-thumbnail-release/test-results/settings-form/verified-shortcuts.log) |
+| SF04 | 通过已执行用例 | 对 macOS 执行只读查询，并测试已关联、部分、未关联和未知分类。替代请求通过真实串行调度，验证去重、失败保留、重复请求拦截和取消后停止。真实写入授权仍未实测。 [设置专项](../build-thumbnail-release/test-results/settings-form/verified-layout.log) |
+| SF05 | 通过本机用例 | 浅色和深色三页均截图并审阅。Command–W、Space、数值步进及面板焦点通过。 [设置专项](../build-thumbnail-release/test-results/settings-form/verified-layout.log) · [窗口](../build-thumbnail-release/test-results/settings-form/verified-window.log) |
+| SF06 | 构建及回归通过 | Release 构建通过，默认 CTest 13/13，格式和源码检查通过。核对了 macOS 15.0 部署配置与 AppKit API 可用性。实际运行系统为 macOS 27.0.1。 [构建](../build-thumbnail-release/test-results/settings-form/verified-build.log) · [静态检查](../build-thumbnail-release/test-results/settings-form/static.log) · [最终回归](../build-thumbnail-release/test-results/settings-form/verified-ctest.log) |
+
+## 实际窗口截图
+
+以下为真实 Cocoa 窗口的 2× Retina 截图。三页在该显示器上的窗口宽度均为 500 pt。含工具栏的截图高度分别为 General 720 pt、Shortcuts 590 pt、Mouse & Trackpad 485 pt。
+
+| 面板 | 浅色 | 深色 |
+| --- | --- | --- |
+| General | [截图](../build-thumbnail-release/test-results/settings-form/screenshots/general-light.png) | [截图](../build-thumbnail-release/test-results/settings-form/screenshots/general-dark.png) |
+| Shortcuts | [截图](../build-thumbnail-release/test-results/settings-form/screenshots/shortcuts-light.png) | [截图](../build-thumbnail-release/test-results/settings-form/screenshots/shortcuts-dark.png) |
+| Mouse & Trackpad | [截图](../build-thumbnail-release/test-results/settings-form/screenshots/mouse-trackpad-light.png) | [截图](../build-thumbnail-release/test-results/settings-form/screenshots/mouse-trackpad-dark.png) |
+
+## 回溯与验证边界
+
+首轮截图和测试发现了原生开关裁切、下拉框边缘偏移及文件关联按钮在初始布局尚未完成时的几何问题。后续固定了控件的自然布局尺寸，复核了五种语言和视觉效果，并补测了深色步进箭头的点击。一次中途完整回归的缩略图套件出现窗口激活超时，最终同机重跑时该套件及设置专项均通过。 [首轮布局](../build-thumbnail-release/test-results/settings-form/initial-layout.log) · [中途回归](../build-thumbnail-release/test-results/settings-form/complete-ctest.log) · [最终回归](../build-thumbnail-release/test-results/settings-form/verified-ctest.log)
+
+本次验证使用主机当前系统强调色，未实机复验 macOS 15、VoiceOver、提高对比度或减少透明度组合。真实关联授权及系统实际写入保持为未验证项。现有本机 QtSvg 动态库构建于 macOS 27，链接器对 macOS 15 部署目标给出版本提示。 [构建](../build-thumbnail-release/test-results/settings-form/verified-build.log)
+
+---
+
 # macOS 设置窗口重构测试完成报告
 
 2026-11-25 在 Apple M3 Pro、macOS 27.0.1、Qt 6.12.0、Cocoa 和 Release 构建下完成验证。默认 CTest **12/12 通过**，耗时 94.85 秒。 [技术设计](technical_design_document.md) · [验收规范](test_case_specification.md) · [完整回归日志](../build-thumbnail-release/test-results/settings-redesign/ctest.log)

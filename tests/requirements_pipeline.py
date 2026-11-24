@@ -305,7 +305,7 @@ CASES = [
     c("ST-ASSOCIATE-BUTTON", "Miscellaneous 末尾有 Associate all supported formats 按钮。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-ASSOCIATE-CENTER", "Associate all supported formats 按钮在 Miscellaneous 可视内容区水平居中。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-ASSOCIATE-LAUNCHSERVICES", "关联实现按扩展名解析 UTI 并调用 Launch Services。", "static", "tests/requirements_pipeline.py::static_contracts"),
-    c("UT-ASSOCIATE-DRYRUN", "文件关联计算支持无副作用 dry-run。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testAssociateAllSupportedFormatsDryRun"),
+    c("UT-ASSOCIATE-DRYRUN", "文件关联支持无副作用的实际系统读取和状态分类。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testFileAssociationStatusFromSystem"),
     c("ST-ASSOCIATE-DIALOG", "文件关联完成后使用原生主题感知弹窗提示。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-ASSOCIATE-CENTER", "文件关联按钮在 General 更新与文件关联组内，采用原生次要按钮样式。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle"),
     c("UT-ASSOCIATE-DIALOG-THEME", "Light/Dark 原生弹窗适配器可实际应用。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNativeDialogsFollowSelectedTheme"),
@@ -339,7 +339,7 @@ UNIT_METHOD_MARKERS = {
     "UT-THEME-LABELS": "WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls",
     "UT-IMAGE-DEFAULTS": "FeatureTests::testPreferencesDefaultsAndRemovedControls",
     "UT-UPDATE-FREQUENCY": "FeatureTests::testUpdateCheckFrequencyPolicy",
-    "UT-ASSOCIATE-DRYRUN": "FeatureTests::testAssociateAllSupportedFormatsDryRun",
+    "UT-ASSOCIATE-DRYRUN": "FeatureTests::testFileAssociationStatusFromSystem",
     "UT-ASSOCIATE-CENTER": "WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle",
     "UT-ASSOCIATE-DIALOG-THEME": "WindowBehaviorTests::testNativeDialogsFollowSelectedTheme",
     "UT-DISPLAY-MERGED": "WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence",
@@ -505,7 +505,7 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
             "setValue(QStringLiteral(\"options/titlebarhidden\"), shouldHide)",
         )
     )
-    association_center_ok = ('name="updatesAssociations"' in options_ui
+    association_center_ok = ('name="fileAssociations"' in options_ui
                              and 'associateFormatsButton->setAutoDefault(false)' in options_cpp)
     nav_ok = all(
         marker in cocoa
@@ -523,7 +523,7 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
         marker in cocoa + cocoa_header
         for marker in (
             "associateAllSupportedFormats", "UTTagClassFilenameExtension",
-            "LSSetDefaultRoleHandlerForContentType", "failedExtensions",
+            "setDefaultApplicationAtURL:", "URLForApplicationToOpenContentType:",
         )
     )
     popup_ok = (

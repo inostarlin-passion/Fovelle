@@ -55,19 +55,19 @@
       <widget class="QWidget" name="generalContent">
        <layout name="generalContentLayout" class="QVBoxLayout">
         <property name="leftMargin">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="topMargin">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="rightMargin">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="bottomMargin">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="spacing">
-         <number>10</number>
+         <number>16</number>
         </property>
         <item>
          <widget class="QWidget" name="languageAppearance">
@@ -85,76 +85,84 @@
             <number>0</number>
            </property>
            <property name="spacing">
-            <number>4</number>
+            <number>5</number>
            </property>
            <item>
             <widget class="QLabel" name="languageAppearanceHeading">
              <property name="text">
-              <string>Language &amp; Appearance</string>
+              <string>Appearance</string>
              </property>
             </widget>
            </item>
            <item>
-            <layout name="languageAppearanceForm" class="QGridLayout" columnstretch="1,0">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <property name="horizontalSpacing">
-              <number>16</number>
-             </property>
-             <property name="verticalSpacing">
-              <number>2</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QLabel" name="langComboLabel">
-               <property name="text">
-                <string>Language:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="langComboBox"/>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="appearanceLabel">
-               <property name="text">
-                <string>Appearance:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="themeComboBox"/>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="checkerboardBackgroundLabel">
-               <property name="text">
-                <string>Use checkerboard background</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QCheckBox" name="checkerboardBackgroundCheckbox">
+            <widget name="languageAppearanceSurface" class="QVSettingsGroup">
+             <layout name="languageAppearanceForm" class="QGridLayout" columnstretch="1,0">
+              <property name="leftMargin">
+               <number>13</number>
+              </property>
+              <property name="topMargin">
+               <number>1</number>
+              </property>
+              <property name="rightMargin">
+               <number>13</number>
+              </property>
+              <property name="bottomMargin">
+               <number>1</number>
+              </property>
+              <property name="horizontalSpacing">
+               <number>12</number>
+              </property>
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="langComboLabel">
+                <property name="text">
+                 <string>Language</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="langComboBox"/>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget name="languageAppearanceFormRow1Separator" class="QFrame"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="appearanceLabel">
+                <property name="text">
+                 <string>Appearance</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="themeComboBox"/>
+              </item>
+              <item row="3" column="0" colspan="2">
+               <widget name="languageAppearanceFormRow2Separator" class="QFrame"/>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="checkerboardBackgroundLabel">
+                <property name="text">
+                 <string>Checkerboard background</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsSwitch" name="checkerboardBackgroundCheckbox">
             </widget>
-             </item>
-            </layout>
+              </item>
+             </layout>
+            </widget>
            </item>
           </layout>
          </widget>
@@ -175,18 +183,8 @@
             <number>0</number>
            </property>
            <property name="spacing">
-            <number>4</number>
+            <number>5</number>
            </property>
-           <item>
-            <widget class="QFrame" name="imageBrowsingSeparator">
-             <property name="frameShape">
-              <enum>QFrame::Shape::HLine</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Shadow::Sunken</enum>
-             </property>
-            </widget>
-           </item>
            <item>
             <widget class="QLabel" name="imageBrowsingHeading">
              <property name="text">
@@ -195,84 +193,95 @@
             </widget>
            </item>
            <item>
-            <layout name="imageBrowsingForm" class="QGridLayout" columnstretch="1,0">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <property name="horizontalSpacing">
-              <number>16</number>
-             </property>
-             <property name="verticalSpacing">
-              <number>2</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QLabel" name="label_2">
-               <property name="text">
-                <string>Smooth scaling:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="smoothScalingComboBox"/>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="smallImagesOneToOneLabel">
-               <property name="text">
-                <string>Show small images at 1:1</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QCheckBox" name="smallImagesOneToOneCheckbox">
-               <property name="toolTip">
-                <string>Show images smaller than the display area at their original 1:1 size</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="keepZoomLabel">
-               <property name="text">
-                <string>Keep zoom level when switching images</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QCheckBox" name="keepZoomCheckbox">
+            <widget name="imageBrowsingSurface" class="QVSettingsGroup">
+             <layout name="imageBrowsingForm" class="QGridLayout" columnstretch="1,0">
+              <property name="leftMargin">
+               <number>13</number>
+              </property>
+              <property name="topMargin">
+               <number>1</number>
+              </property>
+              <property name="rightMargin">
+               <number>13</number>
+              </property>
+              <property name="bottomMargin">
+               <number>1</number>
+              </property>
+              <property name="horizontalSpacing">
+               <number>12</number>
+              </property>
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_2">
+                <property name="text">
+                 <string>Smooth scaling</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="smoothScalingComboBox"/>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget name="imageBrowsingFormRow1Separator" class="QFrame"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="smallImagesOneToOneLabel">
+                <property name="text">
+                 <string>Show small images at 1:1</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsSwitch" name="smallImagesOneToOneCheckbox">
+                <property name="toolTip">
+                 <string>Show images smaller than the display area at their original 1:1 size</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0" colspan="2">
+               <widget name="imageBrowsingFormRow2Separator" class="QFrame"/>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="keepZoomLabel">
+                <property name="text">
+                 <string>Keep zoom level when switching images</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsSwitch" name="keepZoomCheckbox">
             </widget>
-             </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="reuseWindowLabel">
-               <property name="text">
-                <string>Open images in the same window</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QCheckBox" name="reuseWindowCheckbox">
+              </item>
+              <item row="5" column="0" colspan="2">
+               <widget name="imageBrowsingFormRow3Separator" class="QFrame"/>
+              </item>
+              <item row="6" column="0">
+               <widget class="QLabel" name="reuseWindowLabel">
+                <property name="text">
+                 <string>Open images in the same window</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsSwitch" name="reuseWindowCheckbox">
             </widget>
-             </item>
-            </layout>
+              </item>
+             </layout>
+            </widget>
            </item>
           </layout>
          </widget>
@@ -293,18 +302,8 @@
             <number>0</number>
            </property>
            <property name="spacing">
-            <number>4</number>
+            <number>5</number>
            </property>
-           <item>
-            <widget class="QFrame" name="slideshowSeparator">
-             <property name="frameShape">
-              <enum>QFrame::Shape::HLine</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Shadow::Sunken</enum>
-             </property>
-            </widget>
-           </item>
            <item>
             <widget class="QLabel" name="slideshowHeading">
              <property name="text">
@@ -313,68 +312,98 @@
             </widget>
            </item>
            <item>
-            <layout name="slideshowForm" class="QGridLayout" columnstretch="1,0">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <property name="horizontalSpacing">
-              <number>16</number>
-             </property>
-             <property name="verticalSpacing">
-              <number>2</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QLabel" name="label_4">
-               <property name="text">
-                <string>Slideshow direction:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="slideshowDirectionComboBox"/>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_5">
-               <property name="text">
-                <string>Slideshow timer:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QDoubleSpinBox" name="slideshowTimerSpinBox">
-               <property name="suffix">
-                <string> sec</string>
-               </property>
-               <property name="decimals">
-                <number>1</number>
-               </property>
-               <property name="minimum">
-                <double>0.100000000000000</double>
-               </property>
-               <property name="maximum">
-                <double>999.899999999999977</double>
-               </property>
-               <property name="singleStep">
-                <double>0.100000000000000</double>
-               </property>
-              </widget>
-             </item>
-            </layout>
+            <widget name="slideshowSurface" class="QVSettingsGroup">
+             <layout name="slideshowForm" class="QGridLayout" columnstretch="1,0">
+              <property name="leftMargin">
+               <number>13</number>
+              </property>
+              <property name="topMargin">
+               <number>1</number>
+              </property>
+              <property name="rightMargin">
+               <number>13</number>
+              </property>
+              <property name="bottomMargin">
+               <number>1</number>
+              </property>
+              <property name="horizontalSpacing">
+               <number>12</number>
+              </property>
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_4">
+                <property name="text">
+                 <string>Direction</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="slideshowDirectionComboBox"/>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget name="slideshowFormRow1Separator" class="QFrame"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="label_5">
+                <property name="text">
+                 <string>Interval</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget name="slideshowIntervalControl" class="QWidget">
+                <layout name="slideshowIntervalLayout" class="QHBoxLayout">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="spacing">
+                  <number>6</number>
+                 </property>
+                 <item>
+                  <widget class="QVSettingsNumber" name="slideshowTimerSpinBox">
+                   <property name="decimals">
+                    <number>1</number>
+                   </property>
+                   <property name="minimum">
+                    <double>0.100000000000000</double>
+                   </property>
+                   <property name="maximum">
+                    <double>999.899999999999977</double>
+                   </property>
+                   <property name="singleStep">
+                    <double>0.100000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget name="slideshowIntervalUnit" class="QLabel">
+                   <property name="text">
+                    <string>sec</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
            </item>
           </layout>
          </widget>
@@ -395,18 +424,8 @@
             <number>0</number>
            </property>
            <property name="spacing">
-            <number>4</number>
+            <number>5</number>
            </property>
-           <item>
-            <widget class="QFrame" name="fileManagementSeparator">
-             <property name="frameShape">
-              <enum>QFrame::Shape::HLine</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Shadow::Sunken</enum>
-             </property>
-            </widget>
-           </item>
            <item>
             <widget class="QLabel" name="fileManagementHeading">
              <property name="text">
@@ -415,60 +434,65 @@
             </widget>
            </item>
            <item>
-            <layout name="fileManagementForm" class="QGridLayout" columnstretch="1,0">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <property name="horizontalSpacing">
-              <number>16</number>
-             </property>
-             <property name="verticalSpacing">
-              <number>2</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QLabel" name="label_10">
-               <property name="text">
-                <string>After deleting files:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="afterDeletionComboBox"/>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="askDeleteLabel">
-               <property name="text">
-                <string>&amp;Ask before deleting files</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QCheckBox" name="askDeleteCheckbox">
+            <widget name="fileManagementSurface" class="QVSettingsGroup">
+             <layout name="fileManagementForm" class="QGridLayout" columnstretch="1,0">
+              <property name="leftMargin">
+               <number>13</number>
+              </property>
+              <property name="topMargin">
+               <number>1</number>
+              </property>
+              <property name="rightMargin">
+               <number>13</number>
+              </property>
+              <property name="bottomMargin">
+               <number>1</number>
+              </property>
+              <property name="horizontalSpacing">
+               <number>12</number>
+              </property>
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_10">
+                <property name="text">
+                 <string>After deleting files</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="afterDeletionComboBox"/>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget name="fileManagementFormRow1Separator" class="QFrame"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="askDeleteLabel">
+                <property name="text">
+                 <string>&amp;Ask before deleting files</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsSwitch" name="askDeleteCheckbox">
             </widget>
-             </item>
-            </layout>
+              </item>
+             </layout>
+            </widget>
            </item>
           </layout>
          </widget>
         </item>
         <item>
-         <widget class="QWidget" name="updatesAssociations">
-          <layout name="updatesAssociationsSection" class="QVBoxLayout">
+         <widget class="QWidget" name="softwareUpdates">
+          <layout name="softwareUpdatesSection" class="QVBoxLayout">
            <property name="leftMargin">
             <number>0</number>
            </property>
@@ -482,76 +506,165 @@
             <number>0</number>
            </property>
            <property name="spacing">
-            <number>4</number>
+            <number>5</number>
            </property>
            <item>
-            <widget class="QFrame" name="updatesAssociationsSeparator">
-             <property name="frameShape">
-              <enum>QFrame::Shape::HLine</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Shadow::Sunken</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QLabel" name="updatesAssociationsHeading">
+            <widget class="QLabel" name="softwareUpdatesHeading">
              <property name="text">
-              <string>Updates &amp; File Associations</string>
+              <string>Software Updates</string>
              </property>
             </widget>
            </item>
            <item>
-            <layout name="updatesAssociationsForm" class="QGridLayout" columnstretch="1,0">
-             <property name="leftMargin">
-              <number>0</number>
+            <widget name="softwareUpdatesSurface" class="QVSettingsGroup">
+             <layout name="softwareUpdatesForm" class="QGridLayout" columnstretch="1,0">
+              <property name="leftMargin">
+               <number>13</number>
+              </property>
+              <property name="topMargin">
+               <number>1</number>
+              </property>
+              <property name="rightMargin">
+               <number>13</number>
+              </property>
+              <property name="bottomMargin">
+               <number>1</number>
+              </property>
+              <property name="horizontalSpacing">
+               <number>12</number>
+              </property>
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="updateFrequencyLabel">
+                <property name="text">
+                 <string>Check for updates</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="updateFrequencyComboBox"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget name="fileAssociations" class="QWidget">
+          <layout name="fileAssociationsSection" class="QVBoxLayout">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <property name="spacing">
+            <number>5</number>
+           </property>
+           <item>
+            <widget name="fileAssociationsHeading" class="QLabel">
+             <property name="text">
+              <string>File Associations</string>
              </property>
-             <property name="topMargin">
-              <number>0</number>
+            </widget>
+           </item>
+           <item>
+            <widget name="fileAssociationsSurface" class="QVSettingsGroup">
+             <layout name="fileAssociationsForm" columnstretch="1,0" class="QGridLayout">
+              <item row="0" column="0">
+               <widget class="QLabel" name="associateFormatsButtonLabel">
+                <property name="text">
+                 <string>Default Image Viewer</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget name="associationActions" class="QWidget">
+                <layout name="associationActionsLayout" class="QHBoxLayout">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QPushButton" name="associateFormatsButton">
+                   <property name="text">
+                    <string>Associate All</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget name="associationDefaultIndicator" class="QLabel"/>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget name="associationStatus" class="QLabel">
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0" colspan="2">
+               <widget name="associationFeedback" class="QLabel">
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <property name="leftMargin">
+               <number>13</number>
+              </property>
+              <property name="topMargin">
+               <number>1</number>
+              </property>
+              <property name="rightMargin">
+               <number>13</number>
+              </property>
+              <property name="bottomMargin">
+               <number>1</number>
+              </property>
+              <property name="horizontalSpacing">
+               <number>12</number>
+              </property>
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget name="associationScope" class="QLabel">
+             <property name="text">
+              <string>Applies to all supported image formats.</string>
              </property>
-             <property name="rightMargin">
-              <number>0</number>
+             <property name="wordWrap">
+              <bool>true</bool>
              </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <property name="horizontalSpacing">
-              <number>16</number>
-             </property>
-             <property name="verticalSpacing">
-              <number>2</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QLabel" name="updateFrequencyLabel">
-               <property name="text">
-                <string>Auto update check:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="updateFrequencyComboBox"/>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="associateFormatsButtonLabel">
-               <property name="text">
-                <string>Default Image Viewer</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QPushButton" name="associateFormatsButton">
-               <property name="text">
-                <string>Associate all supported formats</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
+            </widget>
            </item>
           </layout>
          </widget>
@@ -584,6 +697,19 @@
        <property name="spacing">
         <number>8</number>
        </property>
+       <item>
+        <widget name="shortcutSearch" class="QLineEdit">
+         <property name="placeholderText">
+          <string>Search shortcuts</string>
+         </property>
+         <property name="accessibleName">
+          <string>Search shortcuts</string>
+         </property>
+         <property name="clearButtonEnabled">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
        <item>
         <widget class="QTableWidget" name="shortcutsTable">
          <property name="editTriggers">
@@ -689,19 +815,19 @@
       <widget class="QWidget" name="mouse">
        <layout name="mouseLayout" class="QVBoxLayout">
         <property name="leftMargin">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="topMargin">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="rightMargin">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="bottomMargin">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="spacing">
-         <number>10</number>
+         <number>16</number>
         </property>
         <item>
          <widget class="QWidget" name="leftButtonGroup">
@@ -719,7 +845,7 @@
             <number>0</number>
            </property>
            <property name="spacing">
-            <number>4</number>
+            <number>5</number>
            </property>
            <item>
             <widget class="QLabel" name="leftButtonGroupHeading">
@@ -729,78 +855,89 @@
             </widget>
            </item>
            <item>
-            <layout name="leftButtonGroupForm" class="QGridLayout" columnstretch="1,0">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <property name="horizontalSpacing">
-              <number>16</number>
-             </property>
-             <property name="verticalSpacing">
-              <number>2</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QLabel" name="doubleClickLabel">
-               <property name="text">
-                <string>Double Click:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="doubleClickComboBox"/>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="altDoubleClickLabel">
-               <property name="text">
-                <string notr="true">Ctrl + Double Click:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="altDoubleClickComboBox"/>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="dragLabel">
-               <property name="text">
-                <string>Drag:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="dragComboBox"/>
-             </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="altDragLabel">
-               <property name="text">
-                <string notr="true">Ctrl + Drag:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="altDragComboBox"/>
-             </item>
-            </layout>
+            <widget name="leftButtonGroupSurface" class="QVSettingsGroup">
+             <layout name="leftButtonGroupForm" class="QGridLayout" columnstretch="1,0">
+              <property name="leftMargin">
+               <number>13</number>
+              </property>
+              <property name="topMargin">
+               <number>1</number>
+              </property>
+              <property name="rightMargin">
+               <number>13</number>
+              </property>
+              <property name="bottomMargin">
+               <number>1</number>
+              </property>
+              <property name="horizontalSpacing">
+               <number>12</number>
+              </property>
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="doubleClickLabel">
+                <property name="text">
+                 <string>Double Click</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="doubleClickComboBox"/>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget name="leftButtonGroupFormRow1Separator" class="QFrame"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="altDoubleClickLabel">
+                <property name="text">
+                 <string notr="true">Ctrl + Double Click</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="altDoubleClickComboBox"/>
+              </item>
+              <item row="3" column="0" colspan="2">
+               <widget name="leftButtonGroupFormRow2Separator" class="QFrame"/>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="dragLabel">
+                <property name="text">
+                 <string>Drag</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="dragComboBox"/>
+              </item>
+              <item row="5" column="0" colspan="2">
+               <widget name="leftButtonGroupFormRow3Separator" class="QFrame"/>
+              </item>
+              <item row="6" column="0">
+               <widget class="QLabel" name="altDragLabel">
+                <property name="text">
+                 <string notr="true">Ctrl + Drag</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="altDragComboBox"/>
+              </item>
+             </layout>
+            </widget>
            </item>
           </layout>
          </widget>
@@ -821,18 +958,8 @@
             <number>0</number>
            </property>
            <property name="spacing">
-            <number>4</number>
+            <number>5</number>
            </property>
-           <item>
-            <widget class="QFrame" name="middleButtonGroupSeparator">
-             <property name="frameShape">
-              <enum>QFrame::Shape::HLine</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Shadow::Sunken</enum>
-             </property>
-            </widget>
-           </item>
            <item>
             <widget class="QLabel" name="middleButtonGroupHeading">
              <property name="text">
@@ -841,52 +968,57 @@
             </widget>
            </item>
            <item>
-            <layout name="middleButtonGroupForm" class="QGridLayout" columnstretch="1,0">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <property name="horizontalSpacing">
-              <number>16</number>
-             </property>
-             <property name="verticalSpacing">
-              <number>2</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QLabel" name="middleClickLabel">
-               <property name="text">
-                <string>Middle Click:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="middleClickComboBox"/>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="altMiddleClickLabel">
-               <property name="text">
-                <string notr="true">Ctrl + Middle Click:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="altMiddleClickComboBox"/>
-             </item>
-            </layout>
+            <widget name="middleButtonGroupSurface" class="QVSettingsGroup">
+             <layout name="middleButtonGroupForm" class="QGridLayout" columnstretch="1,0">
+              <property name="leftMargin">
+               <number>13</number>
+              </property>
+              <property name="topMargin">
+               <number>1</number>
+              </property>
+              <property name="rightMargin">
+               <number>13</number>
+              </property>
+              <property name="bottomMargin">
+               <number>1</number>
+              </property>
+              <property name="horizontalSpacing">
+               <number>12</number>
+              </property>
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="middleClickLabel">
+                <property name="text">
+                 <string>Middle Click</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="middleClickComboBox"/>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget name="middleButtonGroupFormRow1Separator" class="QFrame"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="altMiddleClickLabel">
+                <property name="text">
+                 <string notr="true">Ctrl + Middle Click</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="altMiddleClickComboBox"/>
+              </item>
+             </layout>
+            </widget>
            </item>
           </layout>
          </widget>
@@ -907,98 +1039,99 @@
             <number>0</number>
            </property>
            <property name="spacing">
-            <number>4</number>
+            <number>5</number>
            </property>
-           <item>
-            <widget class="QFrame" name="scrollWheelGroupSeparator">
-             <property name="frameShape">
-              <enum>QFrame::Shape::HLine</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Shadow::Sunken</enum>
-             </property>
-            </widget>
-           </item>
            <item>
             <widget class="QLabel" name="scrollWheelGroupHeading">
              <property name="text">
-              <string>Scroll Wheel / Touchpad</string>
+              <string>Scroll Wheel &amp; Trackpad</string>
              </property>
             </widget>
            </item>
            <item>
-            <layout name="scrollWheelGroupForm" class="QGridLayout" columnstretch="1,0">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <property name="horizontalSpacing">
-              <number>16</number>
-             </property>
-             <property name="verticalSpacing">
-              <number>2</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QLabel" name="verticalScrollLabel">
-               <property name="text">
-                <string>Vertical Scroll:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="verticalScrollComboBox"/>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="altVerticalScrollLabel">
-               <property name="text">
-                <string notr="true">Ctrl + Vertical Scroll:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="altVerticalScrollComboBox"/>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="horizontalScrollLabel">
-               <property name="text">
-                <string>Horizontal Scroll:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="horizontalScrollComboBox"/>
-             </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="altHorizontalScrollLabel">
-               <property name="text">
-                <string notr="true">Ctrl + Horizontal Scroll:</string>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-              <widget class="QComboBox" name="altHorizontalScrollComboBox"/>
-             </item>
-            </layout>
+            <widget name="scrollWheelGroupSurface" class="QVSettingsGroup">
+             <layout name="scrollWheelGroupForm" class="QGridLayout" columnstretch="1,0">
+              <property name="leftMargin">
+               <number>13</number>
+              </property>
+              <property name="topMargin">
+               <number>1</number>
+              </property>
+              <property name="rightMargin">
+               <number>13</number>
+              </property>
+              <property name="bottomMargin">
+               <number>1</number>
+              </property>
+              <property name="horizontalSpacing">
+               <number>12</number>
+              </property>
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="verticalScrollLabel">
+                <property name="text">
+                 <string>Vertical Scroll</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="verticalScrollComboBox"/>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget name="scrollWheelGroupFormRow1Separator" class="QFrame"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="altVerticalScrollLabel">
+                <property name="text">
+                 <string notr="true">Ctrl + Vertical Scroll</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="altVerticalScrollComboBox"/>
+              </item>
+              <item row="3" column="0" colspan="2">
+               <widget name="scrollWheelGroupFormRow2Separator" class="QFrame"/>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="horizontalScrollLabel">
+                <property name="text">
+                 <string>Horizontal Scroll</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="horizontalScrollComboBox"/>
+              </item>
+              <item row="5" column="0" colspan="2">
+               <widget name="scrollWheelGroupFormRow3Separator" class="QFrame"/>
+              </item>
+              <item row="6" column="0">
+               <widget class="QLabel" name="altHorizontalScrollLabel">
+                <property name="text">
+                 <string notr="true">Ctrl + Horizontal Scroll</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
+               <widget class="QVSettingsPopup" name="altHorizontalScrollComboBox"/>
+              </item>
+             </layout>
+            </widget>
            </item>
           </layout>
          </widget>
@@ -1010,6 +1143,29 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QVSettingsGroup</class>
+   <extends>QWidget</extends>
+   <header>qvsettingswidgets.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QVSettingsPopup</class>
+   <extends>QComboBox</extends>
+   <header>qvsettingswidgets.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QVSettingsSwitch</class>
+   <extends>QCheckBox</extends>
+   <header>qvsettingswidgets.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QVSettingsNumber</class>
+   <extends>QDoubleSpinBox</extends>
+   <header>qvsettingswidgets.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

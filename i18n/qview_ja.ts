@@ -1473,6 +1473,146 @@ Unable to associate: %1.</source>
         <source>Edit…</source>
         <translation>編集…</translation>
     </message>
+    <message>
+        <source>Appearance</source>
+        <translation>外観</translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation>言語</translation>
+    </message>
+    <message>
+        <source>Checkerboard background</source>
+        <translation>チェック柄の背景</translation>
+    </message>
+    <message>
+        <source>Smooth scaling</source>
+        <translation>スムーズなスケーリング</translation>
+    </message>
+    <message>
+        <source>Direction</source>
+        <translation>方向</translation>
+    </message>
+    <message>
+        <source>Interval</source>
+        <translation>間隔</translation>
+    </message>
+    <message>
+        <source>After deleting files</source>
+        <translation>ファイル削除後の動作</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>アップデートの確認</translation>
+    </message>
+    <message>
+        <source>High Quality</source>
+        <translation>高画質</translation>
+    </message>
+    <message>
+        <source>Double Click</source>
+        <translation>ダブルクリック</translation>
+    </message>
+    <message>
+        <source>Drag</source>
+        <translation>ドラッグ</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>中クリック</translation>
+    </message>
+    <message>
+        <source>Vertical Scroll</source>
+        <translation>垂直スクロール</translation>
+    </message>
+    <message>
+        <source>Horizontal Scroll</source>
+        <translation>水平スクロール</translation>
+    </message>
+    <message>
+        <source>sec</source>
+        <translation>秒</translation>
+    </message>
+    <message>
+        <source>%1 + Double Click</source>
+        <translation>%1 + ダブルクリック</translation>
+    </message>
+    <message>
+        <source>%1 + Drag</source>
+        <translation>%1 + ドラッグ</translation>
+    </message>
+    <message>
+        <source>%1 + Middle Click</source>
+        <translation>%1 + 中クリック</translation>
+    </message>
+    <message>
+        <source>%1 + Vertical Scroll</source>
+        <translation>%1 + 縦スクロール</translation>
+    </message>
+    <message>
+        <source>%1 + Horizontal Scroll</source>
+        <translation>%1 + 横スクロール</translation>
+    </message>
+    <message>
+        <source>Scroll Wheel &amp; Trackpad</source>
+        <translation>スクロールホイールとトラックパッド</translation>
+    </message>
+    <message>
+        <source>Software Updates</source>
+        <translation>ソフトウェアアップデート</translation>
+    </message>
+    <message>
+        <source>Search shortcuts</source>
+        <translation>ショートカットを検索</translation>
+    </message>
+    <message>
+        <source>Applies to all supported image formats.</source>
+        <translation>対応するすべての画像形式に適用されます。</translation>
+    </message>
+    <message>
+        <source>Not set as default</source>
+        <translation>デフォルトに設定されていません</translation>
+    </message>
+    <message>
+        <source>Default for some formats</source>
+        <translation>一部の形式でデフォルト</translation>
+    </message>
+    <message>
+        <source>Default for all supported formats</source>
+        <translation>対応するすべての形式でデフォルト</translation>
+    </message>
+    <message>
+        <source>Default status unavailable</source>
+        <translation>デフォルトの状態を取得できません</translation>
+    </message>
+    <message>
+        <source>Updating file associations…</source>
+        <translation>ファイルの関連付けを更新中…</translation>
+    </message>
+    <message>
+        <source>Set as Default</source>
+        <translation>デフォルトに設定</translation>
+    </message>
+    <message>
+        <source>Associate All</source>
+        <translation>すべて関連付ける</translation>
+    </message>
+    <message>
+        <source>✓ Default</source>
+        <translation>✓ デフォルト</translation>
+    </message>
+    <message>
+        <source>The system request was cancelled. Earlier changes may still apply.</source>
+        <translation>システムの要求はキャンセルされました。それまでの変更は適用されている場合があります。</translation>
+    </message>
+    <message>
+        <source>Some formats could not be updated. %1</source>
+        <translation>一部の形式を更新できませんでした。%1</translation>
+    </message>
+    <message>
+        <source>The system has not confirmed the change for every format.</source>
+        <translation>一部の形式では、システムによる変更の確認ができていません。</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>

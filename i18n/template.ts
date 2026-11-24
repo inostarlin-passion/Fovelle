@@ -1383,6 +1383,150 @@ No write permission or file is read-only.</source>
         <source>Edit…</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Appearance</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Checkerboard background</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Smooth scaling</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Direction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Interval</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>After deleting files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>High Quality</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Double Click</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Drag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Vertical Scroll</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Horizontal Scroll</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>sec</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 + Double Click</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 + Drag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 + Middle Click</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 + Vertical Scroll</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 + Horizontal Scroll</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scroll Wheel &amp; Trackpad</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Software Updates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Search shortcuts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Applies to all supported image formats.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not set as default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default for some formats</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default for all supported formats</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default status unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Updating file associations…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Set as Default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Associate All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>✓ Default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The system request was cancelled. Earlier changes may still apply.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Some formats could not be updated. %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File Associations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The system has not confirmed the change for every format.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>

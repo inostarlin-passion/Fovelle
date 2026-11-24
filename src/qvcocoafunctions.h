@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <array>
+#include <functional>
 
 class QWidget;
 class QTabBar;
@@ -367,18 +368,31 @@ public:
     static QList<OpenWith::OpenWithItem>
     getOpenWithItems(const QString &filePath, const bool loadIcons, const QString &defaultSuffix);
 
-    struct FileAssociationResult
+    enum class FileAssociationState { Unknown, None, Partial, All };
+    struct FileAssociationStatus
     {
-        int requestedCount{ 0 };
-        int associatedCount{ 0 };
-        QStringList failedExtensions;
+        int associated{ 0 };
+        int other{ 0 };
+        int unknown{ 0 };
+        FileAssociationState state() const;
     };
 
-    // Set Fovelle as the Launch Services viewer for every extension in the
-    // application registry.  The dry-run switch keeps unit tests non-invasive
-    // while the Preferences action uses the real Launch Services operation.
-    static FileAssociationResult associateAllSupportedFormats(const QStringList &extensions,
-                                                              bool dryRun = false);
+    struct FileAssociationAttempt
+    {
+        QStringList failures;
+        bool cancelled{ false };
+    };
+
+    static FileAssociationStatus readFileAssociations(const QStringList &extensions);
+    static bool isChangingFileAssociations();
+    using FileAssociationRequest =
+            std::function<void(const QString &, std::function<void(QString, bool)>)>;
+    static void associateAllSupportedFormats(const QStringList &extensions,
+                                             std::function<void(FileAssociationAttempt)> completion,
+                                             FileAssociationRequest request = { });
+    static bool increaseSettingsContrast();
+    static QImage settingsSwitchImage(const QWindow *window, bool checked, bool enabled,
+                                      qreal devicePixelRatio);
 
     static QByteArray getIccProfileForWindow(const QWindow *window);
 
