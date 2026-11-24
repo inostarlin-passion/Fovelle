@@ -2324,14 +2324,6 @@ You can reenable it in Preferences.</source>
         <translation>正在載入 %1…</translation>
     </message>
     <message>
-        <source>SDR preview</source>
-        <translation>SDR 預覽</translation>
-    </message>
-    <message>
-        <source>Preview</source>
-        <translation>預覽</translation>
-    </message>
-    <message>
         <source>%1 · %2 · %3</source>
         <translation>%1 · %2 · %3</translation>
     </message>
@@ -2367,16 +2359,12 @@ You can reenable it in Preferences.</source>
         <translation>無法讀取此檔案。</translation>
     </message>
     <message>
-        <source>This image exceeds the comparison memory budget.</source>
-        <translation>圖像超出比較模式的記憶體預算。</translation>
+        <source>Not enough memory to load this image.</source>
+        <translation>記憶體不足，無法載入此圖像。</translation>
     </message>
     <message>
         <source>Animated images cannot be used for comparison.</source>
         <translation>比較模式僅支援靜態圖像。</translation>
-    </message>
-    <message>
-        <source>Unable to determine the image size.</source>
-        <translation>無法確定圖像尺寸。</translation>
     </message>
     <message>
         <source>The file changed while it was being read. Select it again.</source>

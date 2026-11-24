@@ -32,7 +32,6 @@ public:
         bool isNativeHDRLoaded = false;
         bool isNativeSDRLoaded = false;
         bool isVectorLoaded = false;
-        bool isComparisonPreview = false;
         QSize baseImageSize;
         QSize loadedPixmapSize;
         QColorSpace targetColorSpace;

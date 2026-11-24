@@ -320,7 +320,6 @@ void QVImageCore::loadPixmap(const ReadData &readData, bool comparisonImage)
     currentFileDetails.isNativeHDRLoaded = loadedHDRImage != nullptr;
     currentFileDetails.isNativeSDRLoaded = loadedSDRImage != nullptr;
     currentFileDetails.isVectorLoaded = loadedVectorImage.isValid();
-    currentFileDetails.isComparisonPreview = readData.comparisonPreview;
     if (loadedVectorImage.isValid())
         currentFileDetails.baseImageSize = loadedVectorImage.logicalSize.toSize();
     else if (readData.intrinsicSize.isValid())
@@ -329,9 +328,8 @@ void QVImageCore::loadPixmap(const ReadData &readData, bool comparisonImage)
         currentFileDetails.baseImageSize = readData.hdrMetadata.pixelSize;
     else
         currentFileDetails.baseImageSize = loadedPixmap.size();
-    currentFileDetails.loadedPixmapSize = currentFileDetails.isComparisonPreview
-                    || currentFileDetails.isNativeHDRLoaded || currentFileDetails.isNativeSDRLoaded
-                    || currentFileDetails.isVectorLoaded
+    currentFileDetails.loadedPixmapSize = currentFileDetails.isNativeHDRLoaded
+                    || currentFileDetails.isNativeSDRLoaded || currentFileDetails.isVectorLoaded
             ? currentFileDetails.baseImageSize
             : loadedPixmap.size();
     currentFileDetails.targetColorSpace = targetColorSpace;

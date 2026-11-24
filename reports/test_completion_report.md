@@ -1,3 +1,119 @@
+# 移除双图对比加载预算的测试完成报告
+
+2026-11-25 在 Apple M3 Pro、36 GiB 统一内存、macOS 27.0.1、Cocoa、Qt 6.12.0 上验证 Release 构建。 [技术设计](technical_design_document.md) · [测试规范](test_case_specification.md)
+
+## 基线复现
+
+在改动生产代码前，用新测试运行现有比较实现。超大候选 SVG、超大参考 SVG 和多窗口持有候选三个场景均返回旧的预算错误。65 MiB JPEG、损坏文件替换和动画拒绝三个对照通过。静态检查发现旧预算接口和缺少分配异常处理。 [动态基线](../build-thumbnail-release/test-results/comparison-unlimited/baseline-dynamic.log) · [静态基线](../build-thumbnail-release/test-results/comparison-unlimited/baseline-static.log)
+
+## 原子验收结果
+
+| 编号 | 结果 | 观测 |
+| --- | --- | --- |
+| UB01 | 通过 | 候选入口只接收文件路径。源码和翻译检查确认比较预算及相关记账已移除。 |
+| UB02 | 通过 | 80000 × 80000 SVG 替换 B，仍为矢量，保留完整逻辑尺寸。 |
+| UB03 | 通过 | 80000 × 80000 SVG 作为 A 时，1000 × 800 BMP 候选完整加载，两侧路径和尺寸正确。 |
+| UB04 | 通过 | 三个并存窗口均持有各自的 12500 × 12500 SVG 候选，完整尺寸与状态均通过。 |
+| UB05 | 通过 | 带 65 MiB 编码文件的候选以完整 1600 × 1200 原生 SDR 加载。 |
+| UB06 | 通过 | 源码检查确认解码前后复核版本和取消状态，比较队列仍串行执行，提交受请求编号、活动状态和错误结果保护。 |
+| UB07 | 通过 | PPM 尺寸可读取而像素解码失败，窗口显示错误并保留 B，重试后提交最近的有效候选。 |
+| UB08 | 通过 | 四帧 GIF 显示动画拒绝提示，B 继续显示。 |
+| UB09 | 通过 | 最大化窗口的两边均以 8064 × 6048 原生 HDR 加载同一路径。 |
+| UB10 | 通过 | 最大化窗口的两边均提交独立的 16384 × 9216 HDR 图像，实际呈现 RGBA16Float 首帧。测试执行且无跳过。 |
+| UB11 | 通过 | 发起加载后退出并再进入，旧任务未向新会话提交。 |
+| UB12 | 通过 | 发起替换后移除 B，旧任务未重新填充候选，A 继续显示。 |
+| UB13 | 通过（静态） | `std::bad_alloc` 处理分支返回可翻译的内存错误。动态故障覆盖使用 UB07 的确定性解码失败。 |
+
+## 回归与验证边界
+
+应用及 QtTest 构建成功。双图 6 项静态检查通过。常规动态阶段 30 项通过，独立 16K 阶段 3 项通过，两者的计数均包含套件初始化和清理，无跳过。默认 CTest 10/10 通过，总耗时 88.12 秒。仓库格式检查、比较测试文件的格式检查以及 `git diff --check` 通过。 [构建日志](../build-thumbnail-release/test-results/comparison-unlimited/build.log) · [CTest 日志](../build-thumbnail-release/test-results/comparison-unlimited/ctest.log) · [格式检查](../build-thumbnail-release/test-results/comparison-unlimited/format.log)
+
+UB13 通过源码验证。实际耗尽系统内存、系统强制终止以及不同设备上的 GPU 分配失败均未实测。本机 QtSvg 面向 macOS 27 构建，链接器对项目的 macOS 15 部署目标提示版本差异。本轮运行覆盖 macOS 27.0.1。 [构建日志](../build-thumbnail-release/test-results/comparison-unlimited/build.log)
+
+---
+
+# 最大化双 16K HDR 对比测试完成报告
+
+验证环境为 Apple M3 Pro、36 GiB 统一内存、macOS 27.0.1、Cocoa、Qt 6.12.0 和 Release 构建。本次可用比较预算为 16 GiB。 [技术设计与正确性论证](technical_design_document.md) · [逐条测试规范](test_case_specification.md)
+
+## 基线复现
+
+用上一轮预算实现打开 16384 × 9216 增益图 JPEG 作为参考，再将同文件作为候选。最大化窗口的候选预算为 0，出现原预算错误。源码契约也确认旧路径存在比较预览回退。 [基线动态复现](../build-thumbnail-release/test-results/comparison-16k-hdr/baseline-16k-window.log) · [静态基线](../build-thumbnail-release/test-results/comparison-16k-hdr/baseline-static.log)
+
+## 原子验收结果
+
+| 编号 | 结果 | 观测 |
+| --- | --- | --- |
+| K01 | 通过 | 最大化窗口成功加载两张内容不同的 16384 × 9216 图像。两侧拥有不同的原生 HDR 对象，源尺寸均完整。 |
+| K02 | 通过 | 以测试 EDR 余量 2.0 等待两侧首帧。两侧均报告有效的 HDR、原生 Metal 首帧和 RGBA16Float，内容亮度余量大于 1。 |
+| K03 | 通过 | 8064 × 6048 便携 HDR JPEG 在最大化下可用同一路径加载到两侧，两侧均保留原生 HDR。 |
+| K04 | 通过 | 对普通 JPEG，预算少 1 字节时返回错误且没有图像或预留，恰好足额时返回完整尺寸的原生 SDR 候选。 |
+| K05 | 通过 | 65 MiB 有效 JPEG 的真实文件字节参与预算。少 1 字节时拒绝，足额时完整加载。 |
+| K06 | 通过 | 超大 SVG 替换触发预算错误，原候选继续显示。 |
+| K07 | 通过 | 活结果耗尽进程共享余量后，另一个候选被拒绝。释放结果后重试成功并按保留成本持有预留。 |
+| K08 | 通过 | 物理内存容量函数、Retina 画布计费、64 Mi 像素估算分界及饱和扣减均通过，16K 配对在 16 GiB 配置满足预算。 |
+| K09 | 通过 | 在完整解码前校验窗口和进程预留，解码后复核文件版本和保留量，交付仍受选择编号保护。比较加载器仅有完整解码路径。 |
+
+## 回归与补充实测
+
+应用和 QtTest 构建完成。双图专项 CTest 3/3 通过，无失败或跳过。默认 CTest 10/10 通过。格式和 `git diff --check` 均通过。初次全量回归发现新增测试的 CTest 超时配置与仓库约定不符，统一为仓库现有配置后重新执行。 [构建](../build-thumbnail-release/test-results/comparison-16k-hdr/build.log) · [双图专项](../build-thumbnail-release/test-results/comparison-16k-hdr/focused.log) · [默认回归](../build-thumbnail-release/test-results/comparison-16k-hdr/default-ctest.log)
+
+独立载入用户文件 `1.JPG`，在 1728 × 984、DPR 2 的最大化窗口向 B 选择相同路径。结果为两侧均保持原生 HDR。最终双 16K 专项进程的最大常驻集约 5.87 GiB，系统记录的峰值内存足迹约 12.29 GiB。这两个系统指标采用不同统计口径。 [原始样本复验](../build-thumbnail-release/test-results/comparison-16k-hdr/actual-sample.log) · [最终双 16K 专项资源记录](../build-thumbnail-release/test-results/comparison-16k-hdr/16k-dynamic.log)
+
+验证覆盖本机可解码的 ISO 增益图 JPEG 和该机的 Metal 渲染路径。其他硬件和格式的实际峰值仍未知。16K 压力用例根据比较预算判断运行条件。当前本机 QtSvg 链接器提示，其构建面向 macOS 27，而项目部署目标为 macOS 15。 [构建与部署目标日志](../build-thumbnail-release/test-results/comparison-16k-hdr/build.log)
+
+## 复现命令
+
+```bash
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-thumbnail-release -R '^FovelleComparison' --output-on-failure -V
+ctest --test-dir build-thumbnail-release --output-on-failure
+```
+
+---
+
+# 双图对比 HDR 加载预算测试完成报告
+
+基线为 `f8cd0cd`。验证环境为 Apple Silicon、macOS 27.0.1、Cocoa、Qt 6.12.0 和 Release 构建。 [技术设计与正确性论证](technical_design_document.md) · [原子验收标准与测试用例](test_case_specification.md)
+
+## 基线复现
+
+基线确认 8064 × 6048 的 A 已进入原生 HDR 路径，拖入同尺寸增益图 JPEG 后，B 未加载且显示 “This image exceeds the comparison memory budget.”。基线还在窗口余量恰好 16 MiB、便携 RAW 预览和释放进程预留后重试三个场景中失败。本次新增的静态预算契约在基线失败，完整原生候选与拒绝后保留旧图两个对照通过。 [基线动态日志](../build-thumbnail-release/test-results/comparison-hdr-budget/baseline-dynamic.log) · [基线静态日志](../build-thumbnail-release/test-results/comparison-hdr-budget/baseline-static.log)
+
+## 逐项验收
+
+| 编号 | 结果 | 验证证据 |
+| --- | --- | --- |
+| HC01 | 通过 | 48.8 MP 增益图 JPEG 成功进入 B，状态为 “SDR preview”，预览长边不超过 1024，A 保持原生 HDR。 |
+| HC02 | 通过 | 3600 × 3600 PNG 成功替换 B，并保持文件的逻辑尺寸。 |
+| HC03 | 通过 | 窗口余量比 16 MiB 少 1 字节时拒绝，恰好 16 MiB 时接受。 |
+| HC04 | 通过 | 64 MiB + 1 字节的文件报告预算错误，结果无预留。 |
+| HC05 | 通过 | 便携 DNG 在 10 MiB 窗口余量下返回 512 × 512 预览，预留符合窗口上限。 |
+| HC06 | 通过 | 预算足够的候选图以原生 HDR 加载，交换和调整窗格后继续使用原生视口。 |
+| HC07 | 通过 | 超大 SVG 被拒绝，原候选仍显示。 |
+| HC08 | 通过 | 静态检查核对窗口余量、进程级原子预留、解码前的预留顺序和交付前的预留收缩。 |
+| HC09 | 通过 | 进程中保留 61 个结果时拒绝新预览，释放后同一输入重试成功。 |
+| HC10 | 通过 | 声明 16000 × 16000 的 JPEG 即使有 512 MiB 窗口余量也被进程级预算拒绝。 |
+| HC11 | 通过 | EXIF 方向 6 得到 768 × 1024 预览和 1200 × 1600 逻辑尺寸。 |
+| HC12 | 通过 | 解码结束后，预留等于实际栅格字节的两倍加 8 MiB。 |
+
+## 回归与验证范围
+
+应用及 QtTest 均构建成功。双图专项的 5 项静态检查和 QtTest 报告的 30 项动态结果全部通过，专项再连续运行三轮均通过。默认 CTest 9/9 通过。仓库格式检查、比较测试文件的格式检查及 `git diff --check` 通过。 [构建日志](../build-thumbnail-release/test-results/comparison-hdr-budget/build.log) · [双图专项](../build-thumbnail-release/test-results/comparison-hdr-budget/focused.log) · [专项三轮](../build-thumbnail-release/test-results/comparison-hdr-budget/repeat.log) · [默认回归](../build-thumbnail-release/test-results/comparison-hdr-budget/default-ctest.log)
+
+用本机相机样本直接调用生产加载器补测。48.8 MP HDR JPEG 和 ProRAW 互作参考及候选时成功。其余 DNG、NEF 和生成的单帧 HEIC 也返回长边为 1024 的预览。实际用户文件和系统编解码器的进程峰值内存仍未知。本机链接器提示所用 QtSvg 构建面向 macOS 27，而项目部署目标为 macOS 15。 [相机样本日志](../build-thumbnail-release/test-results/comparison-hdr-budget/camera-sample.log) · [HEIC 样本日志](../build-thumbnail-release/test-results/comparison-hdr-budget/heif-sample.log)
+
+## 复现命令
+
+```bash
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-thumbnail-release -R '^FovelleComparison' --output-on-failure -V
+ctest --test-dir build-thumbnail-release -R '^FovelleComparison' --repeat until-fail:3 --output-on-failure
+ctest --test-dir build-thumbnail-release --output-on-failure
+```
+
+---
+
 # 退出双图后拖动和 Z 键的测试完成报告
 
 验证基线为 `871ec1b`。本机使用 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Cocoa、Release。 [技术设计与正确性论证](technical_design_document.md) · [逐条测试规范](test_case_specification.md) · [恢复实现](../src/qvgraphicsview.cpp)

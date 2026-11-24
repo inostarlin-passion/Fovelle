@@ -406,7 +406,6 @@ public:
     // a filename extension to decide whether this is a RAW image. Native SDR
     // and HDR graphs preserve source detail while `image` is only the bounded
     // Qt compatibility proxy used until the native layer presents.
-    static QSize comparisonImageSize(const QString &path);
     static NativeImageReadResult readImageWithImageIO(const QString &filePath,
                                                       int fallbackLargestDimension = 0);
 

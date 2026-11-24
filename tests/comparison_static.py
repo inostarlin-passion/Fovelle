@@ -5,6 +5,12 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def comparison_loader():
+    return (ROOT / "src/qvimageloader.cpp").read_text().split(
+        "QVImageLoader::readComparisonImage", 1
+    )[1].split("QVImageLoader::readFile", 1)[0]
+
+
 class ComparisonSourceTests(unittest.TestCase):
     def test_ui_wiring(self):
         menu = (ROOT / "src/actionmanager.cpp").read_text()
@@ -46,15 +52,50 @@ class ComparisonSourceTests(unittest.TestCase):
     def test_worker_contract(self):
         worker = (ROOT / "src/asyncwork.cpp").read_text()
         self.assertRegex(worker, r"(?s)comparisonPool\(\).*?setMaxThreadCount\(1\)")
-        loader = (ROOT / "src/qvimageloader.cpp").read_text().split(
-            "QVImageLoader::readComparisonImage", 1
-        )[1]
-        before = loader.index("fileVersion(path)")
-        preflight = loader.index("comparisonImageBytes(", before)
-        decode = loader.index("readFile(path,", preflight)
-        self.assertIn("fileVersion(path)", loader[decode:])
+        loader = comparison_loader()
+        self.assertRegex(
+            loader,
+            r"(?s)const QByteArray version = fileVersion\(path\).*?"
+            r"reader.supportsAnimation\(\).*?QvAsync::isCanceled\(\) \|\| "
+            r"fileVersion\(path\) != version.*?readFile\(path, 2048, false\).*?"
+            r"QvAsync::isCanceled\(\) \|\| fileVersion\(path\) != version.*?"
+            r"if \(result.errorData.*?return reject\(tr\(\"Unable to display this image\.\"\)\)"
+            r".*?result.fileVersionStamp = version",
+        )
         controls = (ROOT / "src/qvcomparison.cpp").read_text()
-        self.assertRegex(controls, r"(?s)if \(.*?request != .*?\).*?return;.*?commitComparisonImage")
+        self.assertRegex(
+            controls,
+            r"(?s)if \(request != selection\).*?return;.*?if \(!isActive\(\)\)"
+            r".*?return;.*?if \(result.errorData\).*?return;.*?commitComparisonImage"
+            r".*?QvAsync::Lane::Comparison",
+        )
+        self.assertNotIn("readThumbnail", loader)
+
+    def test_worker_recovers_allocation_failure(self):
+        self.assertRegex(
+            comparison_loader(),
+            r"(?s)catch \(const std::bad_alloc &\).*?tr\(\"Not enough memory to load this image\.\"\)",
+        )
+
+    def test_no_comparison_budget(self):
+        loader_header = (ROOT / "src/qvimageloader.h").read_text()
+        self.assertIn("readComparisonImage(const QString &path);", loader_header)
+        compare = (ROOT / "src/qvcomparison.cpp").read_text()
+        self.assertIn("readComparisonImage(path)", compare)
+        for filename in (
+            "src/qvcomparison.cpp", "src/qvcomparison.h", "src/qvimageloader.cpp",
+            "src/qvimageloader.h", "src/qvcocoafunctions.h", "src/qvcocoafunctions.mm",
+            "i18n/qview_zh_Hans.ts", "i18n/qview_zh_Hant.ts",
+        ):
+            with self.subTest(filename=filename):
+                source = (ROOT / filename).read_text()
+                self.assertNotRegex(
+                    source,
+                    r"(?i)comparison(?:Budget|AvailableBytes|Reservation|ImageSize|Footprint|"
+                    r"ImageBytes|SourceBytes|DrawableBytes)|committed(?:Bytes|Reservation)"
+                    r"|comparison memory budget",
+                )
+        self.assertNotIn('tr("SDR preview")', compare)
 
 
 if __name__ == "__main__":

@@ -2096,14 +2096,6 @@ You can reenable it in Preferences.</source>
         <translation>正在加载 %1…</translation>
     </message>
     <message>
-        <source>SDR preview</source>
-        <translation>SDR 预览</translation>
-    </message>
-    <message>
-        <source>Preview</source>
-        <translation>预览</translation>
-    </message>
-    <message>
         <source>%1 · %2 · %3</source>
         <translation>%1 · %2 · %3</translation>
     </message>
@@ -2139,16 +2131,12 @@ You can reenable it in Preferences.</source>
         <translation>无法读取此文件。</translation>
     </message>
     <message>
-        <source>This image exceeds the comparison memory budget.</source>
-        <translation>图像超出对比模式的内存预算。</translation>
+        <source>Not enough memory to load this image.</source>
+        <translation>内存不足，无法加载此图像。</translation>
     </message>
     <message>
         <source>Animated images cannot be used for comparison.</source>
         <translation>对比模式仅支持静态图像。</translation>
-    </message>
-    <message>
-        <source>Unable to determine the image size.</source>
-        <translation>无法确定图像尺寸。</translation>
     </message>
     <message>
         <source>The file changed while it was being read. Select it again.</source>

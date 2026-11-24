@@ -13,6 +13,7 @@
 #include <QThreadPool>
 
 #include <limits>
+#include <new>
 
 namespace {
 constexpr qint64 MaxVectorSourceBytes = 256LL * 1024LL * 1024LL;
@@ -229,17 +230,7 @@ QVImageLoader::preloadAdmissionForFile(const QString &absoluteFilePath)
     return admission;
 }
 
-quint64 QVImageLoader::comparisonImageBytes(QSize size, quint64 bytesPerPixel)
-{
-    if (size.isEmpty() || bytesPerPixel == 0)
-        return ComparisonBudget + 1;
-    const quint64 pixels = quint64(size.width()) * quint64(size.height());
-    return pixels > ComparisonBudget / bytesPerPixel ? ComparisonBudget + 1
-                                                     : pixels * bytesPerPixel;
-}
-
-QVImageLoader::Result QVImageLoader::readComparisonImage(const QString &path,
-                                                         quint64 availableBytes)
+QVImageLoader::Result QVImageLoader::readComparisonImage(const QString &path)
 {
     const auto reject = [&path](const QString &reason) {
         Result result;
@@ -247,88 +238,30 @@ QVImageLoader::Result QVImageLoader::readComparisonImage(const QString &path,
         result.errorData = ErrorData{ 0, reason };
         return result;
     };
-    const QByteArray version = fileVersion(path);
-    if (version.isEmpty())
-        return reject(tr("Unable to read this file."));
 
-    constexpr quint64 maximumEncodedBytes = 64 * 1024 * 1024;
-    const quint64 encodedBytes = quint64(qMax<qint64>(0, QFileInfo(path).size()));
-    if (encodedBytes > maximumEncodedBytes || encodedBytes > availableBytes)
-        return reject(tr("This image exceeds the comparison memory budget."));
+    try {
+        const QByteArray version = fileVersion(path);
+        if (version.isEmpty())
+            return reject(tr("Unable to read this file."));
 
-    QImageReader reader(path);
-    const QSize qtSize = reader.size();
-    if (reader.supportsAnimation() && reader.imageCount() != 1)
-        return reject(tr("Animated images cannot be used for comparison."));
-    const QSize nativeSize = QVCocoaFunctions::comparisonImageSize(path);
-    if (qtSize.isEmpty() && nativeSize.isEmpty())
-        return reject(tr("Unable to determine the image size."));
+        if (QImageReader reader(path); reader.supportsAnimation() && reader.imageCount() != 1)
+            return reject(tr("Animated images cannot be used for comparison."));
 
-    constexpr quint64 overhead = 8 * 1024 * 1024;
-    const quint64 qtBytes = qtSize.isEmpty() ? 0 : comparisonImageBytes(qtSize, 12);
-    const quint64 nativeBytes = nativeSize.isEmpty() ? 0 : comparisonImageBytes(nativeSize, 12);
-    // Reserve across windows until the pixel owners and canceled deliveries are gone.
-    static std::atomic<quint64> reserved{ 0 };
-    const auto reserve = [availableBytes](quint64 estimate) -> std::shared_ptr<quint64> {
-        if (estimate > availableBytes)
-            return { };
-        quint64 used = reserved.load();
-        do {
-            if (estimate > ComparisonBudget - used)
-                return { };
-        } while (!reserved.compare_exchange_weak(used, used + estimate));
-        return { new quint64(estimate), [](quint64 *charge) {
-                    reserved.fetch_sub(*charge);
-                    delete charge;
-                } };
-    };
-    auto reservation = reserve(qMax(qtBytes, nativeBytes) + encodedBytes + overhead);
-    constexpr int previewEdge = 1024;
-    const bool preview = !reservation && reader.format() == "jpeg" && qtSize == nativeSize;
-    if (preview) {
-        // The subsampling request can still materialize a full-size intermediate.
-        const QSize proxySize = qtSize.scaled(previewEdge, previewEdge, Qt::KeepAspectRatio);
-        reservation = reserve(comparisonImageBytes(qtSize, 8) + comparisonImageBytes(proxySize, 8)
-                              + encodedBytes + overhead);
+        if (QvAsync::isCanceled() || fileVersion(path) != version)
+            return reject(tr("The file changed while it was being read. Select it again."));
+        Result result = readFile(path, 2048, false);
+        if (QvAsync::isCanceled() || fileVersion(path) != version)
+            return reject(tr("The file changed while it was being read. Select it again."));
+        if (result.errorData
+            || (result.image.isNull() && !result.vectorImage.isValid() && !result.sdrImage
+                && !result.hdrImage))
+            return reject(tr("Unable to display this image."));
+
+        result.fileVersionStamp = version;
+        return result;
+    } catch (const std::bad_alloc &) {
+        return reject(tr("Not enough memory to load this image."));
     }
-    if (!reservation)
-        return reject(tr("This image exceeds the comparison memory budget."));
-
-    if (QvAsync::isCanceled() || fileVersion(path) != version)
-        return reject(tr("The file changed while it was being read. Select it again."));
-    Result result;
-    if (preview) {
-        bool fallback = false;
-        bool limited = false;
-        result.image =
-                QVCocoaFunctions::readThumbnail(path, previewEdge, encodedBytes, fallback, limited);
-        result.intrinsicSize =
-                reader.transformation().testFlag(QImageIOHandler::TransformationRotate90)
-                ? qtSize.transposed()
-                : qtSize;
-        result.absoluteFilePath = path;
-        result.fileSize = encodedBytes;
-        result.sourceIsFile = true;
-        result.sourceColor = QvColor::readSource(path);
-        result.comparisonPreview = true;
-        if (!result.image.isNull()) {
-            const quint64 retained = quint64(result.image.sizeInBytes()) * 2 + overhead;
-            if (retained < *reservation) {
-                reserved.fetch_sub(*reservation - retained);
-                *reservation = retained;
-            }
-        }
-    } else {
-        result = readFile(path, 2048, false);
-    }
-    if (fileVersion(path) != version)
-        return reject(tr("The file changed while it was being read. Select it again."));
-    if (result.errorData || (result.image.isNull() && !result.vectorImage.isValid()))
-        return reject(tr("Unable to display this image."));
-    result.fileVersionStamp = version;
-    result.estimatedDecodedBytes = *reservation;
-    result.comparisonReservation = std::move(reservation);
-    return result;
 }
 
 QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,

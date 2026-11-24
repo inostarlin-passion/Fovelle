@@ -1,5 +1,7 @@
 #include <QDropEvent>
 #include <QSplitter>
+#include <sys/sysctl.h>
+#include "native_color_fixtures.h"
 
 namespace {
 struct CompareFixture
@@ -24,6 +26,18 @@ struct CompareFixture
         image.fill(color);
         const QString path = directory.filePath(name);
         return image.save(path) ? path : QString();
+    }
+
+    QString writeSquareSvg(const QString &name, int edge)
+    {
+        QFile file(directory.filePath(name));
+        const auto svg =
+                QStringLiteral("<svg xmlns='http://www.w3.org/2000/svg' width='%1' height='%1'>"
+                               "<rect width='100%' height='100%' fill='blue'/></svg>")
+                        .arg(edge)
+                        .toUtf8();
+        return file.open(QIODevice::WriteOnly) && file.write(svg) == svg.size() ? file.fileName()
+                                                                                : QString();
     }
 
     QAction *action(const QString &key)
@@ -203,13 +217,15 @@ void WindowBehaviorTests::testCompareReplacement()
 {
     CompareFixture fixture;
     PREPARE_PAIR(fixture);
-    const QString brokenPath = fixture.directory.filePath("broken.bmp");
+    const QString brokenPath = fixture.directory.filePath("broken.ppm");
     QFile broken(brokenPath);
     QVERIFY(broken.open(QIODevice::WriteOnly));
-    broken.write("broken");
+    const QByteArray header("P6\n20 10\n255\n");
+    QCOMPARE(broken.write(header), header.size());
     broken.close();
+    QCOMPARE(QImageReader(brokenPath).size(), QSize(20, 10));
     QVERIFY(fixture.select(brokenPath));
-    QTRY_VERIFY(fixture.feedback().contains("Unable", Qt::CaseInsensitive));
+    QTRY_COMPARE(fixture.feedback(), QStringLiteral("Unable to display this image."));
     QVERIFY(fixture.ready(fixture.second));
     const QString latest = fixture.writeImage("d.bmp", { 640, 500 }, Qt::green);
     QVERIFY(fixture.select(brokenPath));
@@ -238,17 +254,47 @@ void WindowBehaviorTests::testCompareExitWhileLoading()
     QVERIFY(!fixture.candidate());
 }
 
-void WindowBehaviorTests::testCompareAdmission()
+void WindowBehaviorTests::testCompareLargeCandidate()
 {
     CompareFixture fixture;
     PREPARE_PAIR(fixture);
-    const QString path = fixture.directory.filePath("oversize.svg");
-    QFile file(path);
-    QVERIFY(file.open(QIODevice::WriteOnly));
-    file.write("<svg xmlns='http://www.w3.org/2000/svg' width='80000' height='80000'/>");
-    file.close();
+    const QString path = fixture.writeSquareSvg("other/large-candidate.svg", 80000);
+    QVERIFY(!path.isEmpty());
     QVERIFY(fixture.select(path));
-    QTRY_VERIFY(fixture.feedback().contains("budget", Qt::CaseInsensitive));
+    QTRY_VERIFY2(fixture.ready(path), qPrintable(fixture.feedback()));
+    const auto &details = fixture.candidate()->getCurrentFileDetails();
+    QVERIFY(details.isVectorLoaded);
+    QCOMPARE(details.loadedPixmapSize, QSize(80000, 80000));
+    QVERIFY(fixture.feedback().isEmpty());
+}
+
+void WindowBehaviorTests::testCompareLargeReference()
+{
+    CompareFixture fixture;
+    fixture.first = fixture.writeSquareSvg("large-reference.svg", 80000);
+    OPEN_COMPARISON(fixture);
+    QVERIFY(fixture.select(fixture.second));
+    QTRY_VERIFY2(fixture.ready(fixture.second), qPrintable(fixture.feedback()));
+    const auto &reference = fixture.reference()->getCurrentFileDetails();
+    QCOMPARE(reference.fileInfo.absoluteFilePath(), fixture.first);
+    QVERIFY(reference.isVectorLoaded);
+    QCOMPARE(reference.loadedPixmapSize, QSize(80000, 80000));
+    QCOMPARE(fixture.candidate()->getCurrentFileDetails().loadedPixmapSize, QSize(1000, 800));
+    QVERIFY(fixture.feedback().isEmpty());
+}
+
+void WindowBehaviorTests::testCompareAnimatedCandidate()
+{
+    CompareFixture fixture;
+    PREPARE_PAIR(fixture);
+    const QString path = QFINDTESTDATA("data/remediation.gif");
+    QVERIFY(!path.isEmpty());
+    QImageReader reader(path);
+    QVERIFY(reader.supportsAnimation());
+    QCOMPARE(reader.imageCount(), 4);
+    QVERIFY(fixture.select(path));
+    QTRY_COMPARE(fixture.feedback(),
+                 QStringLiteral("Animated images cannot be used for comparison."));
     QVERIFY(fixture.ready(fixture.second));
 }
 
@@ -337,19 +383,128 @@ void WindowBehaviorTests::testCompareRemove()
              fixture.first);
 }
 
-void WindowBehaviorTests::testCompareBudgetPreview()
+void WindowBehaviorTests::testCompareMaximized16KHDR()
+{
+    // This fixture can use over 12 GiB. Keep it off small test hosts.
+    constexpr quint64 GiB = 1024ULL * 1024 * 1024;
+    quint64 physicalBytes = 0;
+    size_t length = sizeof(physicalBytes);
+    if (sysctlbyname("hw.memsize", &physicalBytes, &length, nullptr, 0) != 0
+        || physicalBytes < 32 * GiB)
+        QSKIP("The two 16K HDR fixtures run on hosts with at least 32 GiB of physical memory");
+    ScopedHDRTestDisplay display(2.0F);
+    CompareFixture fixture;
+    const auto portable = QFINDTESTDATA("data/portable-hdr/gain-map.jpg");
+    QVERIFY(!portable.isEmpty());
+    const QSize sourceSize(16384, 9216);
+    fixture.first = fixture.directory.filePath("a-16k-hdr.jpg");
+    fixture.second = fixture.directory.filePath("other/b-16k-hdr.jpg");
+    QVERIFY(scaleComparisonHDRJpeg(portable, fixture.first, sourceSize));
+    QVERIFY(scaleComparisonHDRJpeg(portable, fixture.second, sourceSize, true));
+
+    fixture.window.showMaximized();
+    fixture.window.raise();
+    fixture.window.activateWindow();
+    QTRY_VERIFY(fixture.window.isMaximized());
+    fixture.window.openFile(fixture.first);
+    QTRY_VERIFY_WITH_TIMEOUT(fixture.window.getIsPixmapLoaded(), 30000);
+    auto *reference = fixture.reference();
+    const auto &a = reference->getCurrentFileDetails();
+    QVERIFY(a.isNativeHDRLoaded);
+    QCOMPARE(a.fileInfo.absoluteFilePath(), fixture.first);
+    QCOMPARE(a.loadedPixmapSize, sourceSize);
+
+    fixture.window.toggleComparison();
+    QTRY_VERIFY(fixture.candidate());
+    auto *candidate = fixture.candidate();
+    QVERIFY(fixture.select(fixture.second));
+    QTRY_VERIFY2_WITH_TIMEOUT(fixture.ready(fixture.second), qPrintable(fixture.feedback()), 30000);
+    const auto &b = candidate->getCurrentFileDetails();
+    QVERIFY(b.isNativeHDRLoaded);
+    QCOMPARE(b.loadedPixmapSize, sourceSize);
+    QCOMPARE(a.loadedPixmapSize, sourceSize);
+    QVERIFY(reference->thumbnailImageCore().getLoadedHDRImage()
+            != candidate->thumbnailImageCore().getLoadedHDRImage());
+    QCOMPARE(a.fileInfo.absoluteFilePath(), fixture.first);
+    QVERIFY(fixture.window.isMaximized());
+
+    for (auto *view : { reference, candidate }) {
+        QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().firstFramePresented, 30000);
+        const auto diagnostics = view->nativeMetalRendererDiagnostics();
+        QVERIFY(diagnostics.imageActive);
+        QVERIFY(diagnostics.usesRGBA16Float);
+        QVERIFY(diagnostics.wantsExtendedDynamicRangeContent);
+        QVERIFY(diagnostics.contentHeadroom > 1.0F);
+    }
+    QVERIFY(fixture.feedback().isEmpty());
+}
+
+void WindowBehaviorTests::testCompareMaximizedHDRSameFile()
 {
     CompareFixture fixture;
-    const QString large = fixture.writeImage("large.jpg", { 9000, 5000 }, Qt::green);
-    QVERIFY(!large.isEmpty());
+    const auto portable = QFINDTESTDATA("data/portable-hdr/gain-map.jpg");
+    QVERIFY(!portable.isEmpty());
+    const QSize fullSize(8064, 6048);
+    fixture.first = fixture.directory.filePath("hdr.jpg");
+    QVERIFY(scaleComparisonHDRJpeg(portable, fixture.first, fullSize));
+    fixture.window.showMaximized();
+    QTRY_VERIFY(fixture.window.isMaximized());
+
     OPEN_COMPARISON(fixture);
-    QVERIFY(fixture.select(large));
-    QTRY_VERIFY(fixture.ready(large));
-    auto *view = fixture.candidate();
-    QVERIFY(view->getCurrentFileDetails().isComparisonPreview);
-    QCOMPARE(view->getCurrentFileDetails().loadedPixmapSize, QSize(9000, 5000));
-    QVERIFY(view->isImageAtFit());
-    QCOMPARE(fixture.feedback(), QStringLiteral("SDR preview"));
+    QVERIFY(fixture.select(fixture.first));
+    QTRY_VERIFY2_WITH_TIMEOUT(fixture.ready(fixture.first), qPrintable(fixture.feedback()), 15000);
+    for (auto *view : { fixture.reference(), fixture.candidate() }) {
+        const auto &details = view->getCurrentFileDetails();
+        QVERIFY(details.isNativeHDRLoaded);
+        QCOMPARE(details.loadedPixmapSize, fullSize);
+        QCOMPARE(details.fileInfo.absoluteFilePath(), fixture.first);
+    }
+}
+
+void WindowBehaviorTests::testCompareLargeEncodedFile()
+{
+    CompareFixture fixture;
+    OPEN_COMPARISON(fixture);
+    const QSize size(1600, 1200);
+    const QString path = fixture.writeImage("other/full.jpg", size, Qt::blue);
+    QVERIFY(!path.isEmpty());
+    constexpr qint64 encodedBytes = 65 * 1024 * 1024;
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::ReadWrite));
+    QVERIFY(file.resize(encodedBytes));
+    file.close();
+
+    QVERIFY(fixture.select(path));
+    QTRY_VERIFY2(fixture.ready(path), qPrintable(fixture.feedback()));
+    const auto &details = fixture.candidate()->getCurrentFileDetails();
+    QVERIFY(details.isNativeSDRLoaded);
+    QCOMPARE(details.loadedPixmapSize, size);
+    QCOMPARE(details.sourceFileSize, encodedBytes);
+    QVERIFY(fixture.feedback().isEmpty());
+}
+
+void WindowBehaviorTests::testCompareConcurrentWindows()
+{
+    constexpr int edge = 12500;
+    CompareFixture fixtures[3];
+    QString paths[3];
+    for (int i = 0; i < 3; ++i) {
+        auto &fixture = fixtures[i];
+        OPEN_COMPARISON(fixture);
+        paths[i] = fixture.writeSquareSvg("other/large-candidate.svg", edge);
+        QVERIFY(!paths[i].isEmpty());
+        QVERIFY(fixture.select(paths[i]));
+        QTRY_VERIFY2(fixture.ready(paths[i]), qPrintable(fixture.feedback()));
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        auto &fixture = fixtures[i];
+        QVERIFY(fixture.ready(paths[i]));
+        const auto &details = fixture.candidate()->getCurrentFileDetails();
+        QVERIFY(details.isVectorLoaded);
+        QCOMPARE(details.loadedPixmapSize, QSize(edge, edge));
+        QVERIFY(fixture.feedback().isEmpty());
+    }
 }
 
 void WindowBehaviorTests::testCompareInitialEqualWidths_data()

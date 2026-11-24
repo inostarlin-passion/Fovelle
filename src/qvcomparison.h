@@ -66,7 +66,6 @@ private:
     void startPending();
     void refreshHeaders();
     void setStatus(const QString &text, bool announce = false);
-    void refreshPreview();
     void restoreLayout();
     void resetEqualWidths();
     void rememberCenter(QVGraphicsView *view);
@@ -94,7 +93,6 @@ private:
     QCheckBox *panLink;
     QSplitter *splitter;
     QTimer *layoutTimer;
-    QTimer *previewTimer;
     QJsonObject referenceSession;
     QPointF referenceInitialCenter;
     QPointF referenceCenter;
@@ -104,8 +102,6 @@ private:
     QString selectedPath;
     quint64 selection = 0;
     QvAsync::Ticket job;
-    quint64 committedBytes = 0;
-    std::shared_ptr<void> committedReservation;
 };
 
 #endif

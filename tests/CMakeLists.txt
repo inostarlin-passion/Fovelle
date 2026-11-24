@@ -765,10 +765,17 @@ set_tests_properties(FovelleComparisonStatic PROPERTIES TIMEOUT 0 LABELS "compar
 
 add_test(NAME FovelleComparisonDynamic COMMAND fovelle_tests
     testCompareEntry testCompareLoad testCompareZoom testCompareIndependent testComparePan
-    testCompareSwap testCompareReplacement testCompareExitWhileLoading testCompareAdmission
+    testCompareSwap testCompareReplacement testCompareExitWhileLoading testCompareLargeCandidate
+    testCompareLargeReference testCompareAnimatedCandidate
     testCompareNativeLayout testCompareGestureOwnership testCompareZoomCommands testCompareRemove
-    testCompareBudgetPreview testCompareInitialEqualWidths testCompareDividerCenter
+    testCompareMaximizedHDRSameFile testCompareLargeEncodedFile testCompareConcurrentWindows
+    testCompareInitialEqualWidths testCompareDividerCenter
     testCompareDividerDragLayer testCompareDividerCancellation
     testCompareExitRestoresTransform testCompareExitRestoresDragging testCompareExitRestoresZ)
 set_tests_properties(FovelleComparisonDynamic PROPERTIES TIMEOUT 0 LABELS "compare;dynamic"
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
+
+add_test(NAME FovelleComparison16KHDR COMMAND fovelle_tests testCompareMaximized16KHDR)
+set_tests_properties(FovelleComparison16KHDR PROPERTIES RUN_SERIAL TRUE TIMEOUT 0
+    LABELS "compare;dynamic"
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")

@@ -11,6 +11,7 @@
 #include <QCheckBox>
 #include <QCoreApplication>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
@@ -195,9 +196,6 @@ QVComparison::QVComparison(QVGraphicsView *view, QWidget *parent)
     layoutTimer = new QTimer(this);
     layoutTimer->setSingleShot(true);
     connect(layoutTimer, &QTimer::timeout, this, &QVComparison::restoreLayout);
-    previewTimer = new QTimer(this);
-    previewTimer->setInterval(150);
-    connect(previewTimer, &QTimer::timeout, this, &QVComparison::refreshPreview);
     connect(splitter, &QSplitter::splitterMoved, this, [this] { restoreLayout(); });
     connect(zoomLink, &QCheckBox::toggled, this, &QVComparison::stateChanged);
     connect(panLink, &QCheckBox::toggled, this, &QVComparison::stateChanged);
@@ -335,7 +333,6 @@ void QVComparison::leave()
     cancelPending();
     cancelInput();
     cancelDividerDrag();
-    previewTimer->stop();
     auto *oldCandidate = candidate;
     candidate = nullptr;
     active = reference;
@@ -343,8 +340,6 @@ void QVComparison::leave()
     oldCandidate->shutdownAsyncWork();
     delete candidatePane;
     candidatePane = nullptr;
-    committedBytes = 0;
-    committedReservation.reset();
     reference->setComparison(nullptr);
     reference->setMinimumWidth(0);
     referencePane->setMinimumWidth(0);
@@ -404,7 +399,6 @@ void QVComparison::selectFile(const QString &path)
 {
     if (!isActive() || path.isEmpty())
         return;
-    previewTimer->stop();
     selectedPath = path;
     ++selection;
     setStatus(tr("Loading %1…").arg(QFileInfo(path).fileName()));
@@ -419,47 +413,37 @@ void QVComparison::startPending()
         return;
     const QString path = selectedPath;
     const quint64 request = selection;
-    const quint64 referenceBytes = QVImageLoader::comparisonImageBytes(
-            reference->getCurrentFileDetails().baseImageSize, 8);
-    const QSize drawable = size() * devicePixelRatioF();
-    const quint64 drawableBytes = QVImageLoader::comparisonImageBytes(drawable, 24);
-    const quint64 charged = referenceBytes + committedBytes + drawableBytes;
-    const quint64 available = charged < QVImageLoader::ComparisonBudget
-            ? QVImageLoader::ComparisonBudget - charged
-            : 0;
 
-    job = QvAsync::run(
-            [path, available] { return QVImageLoader::readComparisonImage(path, available); },
-            [this, request](QVImageLoader::Result result) {
-                job.reset();
-                if (request != selection) {
-                    startPending();
-                    return;
-                }
-                if (!isActive())
-                    return;
-                selectedPath.clear();
-                if (result.errorData) {
-                    setStatus(result.errorData->errorString, true);
-                    refreshHeaders();
-                    return;
-                }
-                cancelInput();
-                const auto oldReservation = std::move(committedReservation);
-                committedReservation = std::move(result.comparisonReservation);
-                committedBytes = result.estimatedDecodedBytes;
-                candidateCenter = { 0.5, 0.5 };
-                candidate->thumbnailImageCore().commitComparisonImage(result);
-                candidate->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit, true);
-                candidate->fitOrConstrainImage();
-                candidate->centerImage();
-                refreshPreview();
-                refreshHeaders();
-                QAccessibleEvent loaded(candidate, QAccessible::NameChanged);
-                QAccessible::updateAccessibility(&loaded);
-                emit stateChanged();
-            },
-            0, QvAsync::Lane::Comparison);
+    job = QvAsync::run([path] { return QVImageLoader::readComparisonImage(path); },
+                       [this, request](QVImageLoader::Result result) {
+                           job.reset();
+                           if (request != selection) {
+                               result = { };
+                               startPending();
+                               return;
+                           }
+                           if (!isActive())
+                               return;
+                           selectedPath.clear();
+                           if (result.errorData) {
+                               setStatus(result.errorData->errorString, true);
+                               refreshHeaders();
+                               return;
+                           }
+                           cancelInput();
+                           candidateCenter = { 0.5, 0.5 };
+                           candidate->thumbnailImageCore().commitComparisonImage(result);
+                           candidate->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit,
+                                                            true);
+                           candidate->fitOrConstrainImage();
+                           candidate->centerImage();
+                           setStatus(QString());
+                           refreshHeaders();
+                           QAccessibleEvent loaded(candidate, QAccessible::NameChanged);
+                           QAccessible::updateAccessibility(&loaded);
+                           emit stateChanged();
+                       },
+                       0, QvAsync::Lane::Comparison);
 }
 
 void QVComparison::removeCandidate()
@@ -468,35 +452,12 @@ void QVComparison::removeCandidate()
         return;
     cancelPending();
     cancelInput();
-    previewTimer->stop();
     candidate->closeImage();
-    committedBytes = 0;
-    committedReservation.reset();
     candidateCenter = { 0.5, 0.5 };
     setStatus(tr("Choose or drop an image in this pane."));
     refreshHeaders();
     choose->setFocus();
     emit stateChanged();
-}
-
-void QVComparison::refreshPreview()
-{
-    if (!isActive() || !selectedPath.isEmpty())
-        return;
-    const auto &details = candidate->getCurrentFileDetails();
-    const auto diagnostics = candidate->nativeMetalRendererDiagnostics();
-    const bool native = details.isNativeHDRLoaded || details.isNativeSDRLoaded;
-    if (details.isComparisonPreview) {
-        previewTimer->stop();
-        setStatus(tr("SDR preview"));
-    } else if (native && !diagnostics.firstFramePresented) {
-        setStatus(details.isNativeHDRLoaded ? tr("SDR preview") : tr("Preview"));
-        if (diagnostics.rendererAvailable)
-            previewTimer->start();
-    } else {
-        previewTimer->stop();
-        setStatus(QString());
-    }
 }
 
 void QVComparison::setStatus(const QString &message, bool announce)

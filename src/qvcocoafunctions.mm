@@ -6202,28 +6202,6 @@ QSize QVCocoaFunctions::imagePixelSize(const QString &filePath)
     }
 }
 
-QSize QVCocoaFunctions::comparisonImageSize(const QString &path)
-{
-    @autoreleasepool {
-        CGImageSourceRef source =
-                CGImageSourceCreateWithURL((CFURLRef)QUrl::fromLocalFile(path).toNSURL(), nullptr);
-        if (!source)
-            return { };
-        const auto releaseSource = qScopeGuard([source] { CFRelease(source); });
-        QSize largest;
-        qint64 largestArea = 0;
-        for (size_t i = 0; i < CGImageSourceGetCount(source); ++i) {
-            const QSize size = sourcePixelSize(source, i);
-            const qint64 area = size.isValid() ? qint64(size.width()) * size.height() : 0;
-            if (area > largestArea) {
-                largest = size;
-                largestArea = area;
-            }
-        }
-        return largest;
-    }
-}
-
 QVCocoaFunctions::NativeImageReadResult
 QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallbackLargestDimension)
 {
@@ -6269,6 +6247,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
             return result;
         }
 
+        const auto releaseSource = qScopeGuard([source] { CFRelease(source); });
         const CFStringRef sourceType = CGImageSourceGetType(source);
         result.typeIdentifier = QStringFromCFString(sourceType);
         result.isImageIOType = sourceType != nullptr;
@@ -6788,8 +6767,6 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 && result.errorString.isEmpty())
                 result.errorString = QStringLiteral("Image I/O could not decode the image");
         }
-
-        CFRelease(source);
     }
 
     return result;

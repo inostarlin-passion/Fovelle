@@ -1550,8 +1550,7 @@ void QVGraphicsView::postLoad()
     loadedPixmapItem->setTransform(QTransform());
     const QSize fallbackSize = imageCore.getLoadedPixmap().size();
     const QSize sourceSize = getCurrentFileDetails().loadedPixmapSize;
-    if ((getCurrentFileDetails().isNativeHDRLoaded || getCurrentFileDetails().isNativeSDRLoaded
-         || getCurrentFileDetails().isComparisonPreview)
+    if ((getCurrentFileDetails().isNativeHDRLoaded || getCurrentFileDetails().isNativeSDRLoaded)
         && !fallbackSize.isEmpty() && !sourceSize.isEmpty()) {
         loadedPixmapItem->setTransform(QTransform::fromScale(
                 static_cast<qreal>(sourceSize.width()) / fallbackSize.width(),
@@ -2748,8 +2747,8 @@ bool QVGraphicsView::isSmoothScalingRequested() const
 bool QVGraphicsView::isExpensiveScalingRequested() const
 {
     if (getCurrentFileDetails().isNativeHDRLoaded || getCurrentFileDetails().isNativeSDRLoaded
-        || getCurrentFileDetails().isVectorLoaded || getCurrentFileDetails().isComparisonPreview
-        || !isSmoothScalingRequested() || smoothScalingMode != Qv::SmoothScalingMode::Expensive
+        || getCurrentFileDetails().isVectorLoaded || !isSmoothScalingRequested()
+        || smoothScalingMode != Qv::SmoothScalingMode::Expensive
         || !getCurrentFileDetails().isPixmapLoaded)
         return false;
 

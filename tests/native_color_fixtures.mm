@@ -1,4 +1,5 @@
 #include "native_color_fixtures.h"
+#import <CoreImage/CoreImage.h>
 #import <Foundation/Foundation.h>
 #import <ImageIO/ImageIO.h>
 #import <CoreGraphics/CoreGraphics.h>
@@ -77,4 +78,32 @@ QByteArray createColorP3Pdf(bool adobeGreen)
                       CFDataGetLength(bytes));
     CFRelease(bytes);
     return result;
+}
+
+bool scaleComparisonHDRJpeg(const QString &source, const QString &path, QSize size, bool mirrored)
+{
+    @autoreleasepool {
+        NSURL *url = [NSURL fileURLWithPath:source.toNSString()];
+        CIImage *sdr = [CIImage imageWithContentsOfURL:url];
+        CIImage *hdr = [CIImage imageWithContentsOfURL:url options:@{kCIImageExpandToHDR : @YES}];
+        if (!sdr || !hdr || CGRectIsEmpty(sdr.extent) || !CGRectEqualToRect(sdr.extent, hdr.extent))
+            return false;
+        const auto xScale = size.width() / CGRectGetWidth(sdr.extent);
+        const auto yScale = size.height() / CGRectGetHeight(sdr.extent);
+        const auto scale = CGAffineTransformMake(mirrored ? -xScale : xScale, 0.0, 0.0, yScale,
+                                                 mirrored ? size.width() : 0.0, 0.0);
+        CGColorSpaceRef linear = CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearDisplayP3);
+        CGColorSpaceRef output = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+        CIContext *context =
+                [CIContext contextWithOptions:@{ kCIContextWorkingColorSpace : (id)linear }];
+        NSData *jpeg = [context JPEGRepresentationOfImage:[sdr imageByApplyingTransform:scale]
+                                               colorSpace:output
+                                                  options:@{
+                                                      kCIImageRepresentationHDRImage :
+                                                              [hdr imageByApplyingTransform:scale]
+                                                  }];
+        CGColorSpaceRelease(output);
+        CGColorSpaceRelease(linear);
+        return [jpeg writeToFile:path.toNSString() atomically:YES];
+    }
 }
