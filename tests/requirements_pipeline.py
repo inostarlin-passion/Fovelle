@@ -302,12 +302,12 @@ CASES = [
     c("ST-MISC-UPDATE-OLD", "Update notifications on startup 控件和旧设置键移除。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-UPDATE-FREQUENCY-UI", "Automatically check for updates 下拉列表包含四项且默认 Weekly。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-UPDATE-FREQUENCY", "Never/Daily/Weekly/Monthly 的更新策略按日历间隔判定。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testUpdateCheckFrequencyPolicy"),
-    c("ST-ASSOCIATE-BUTTON", "Miscellaneous 末尾有 Associate all supported formats 按钮。", "static", "tests/requirements_pipeline.py::static_contracts"),
-    c("ST-ASSOCIATE-CENTER", "Associate all supported formats 按钮在 Miscellaneous 可视内容区水平居中。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-ASSOCIATE-BUTTON", "General 的 Default Image Viewer 使用迷你开关触发系统请求。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-ASSOCIATE-CENTER", "文件关联组只有标题和标签、开关所在的一行。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-ASSOCIATE-LAUNCHSERVICES", "关联实现按扩展名解析 UTI 并调用 Launch Services。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-ASSOCIATE-DRYRUN", "文件关联支持无副作用的实际系统读取和状态分类。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testFileAssociationStatusFromSystem"),
-    c("ST-ASSOCIATE-DIALOG", "文件关联完成后使用原生主题感知弹窗提示。", "static", "tests/requirements_pipeline.py::static_contracts"),
-    c("UT-ASSOCIATE-CENTER", "文件关联按钮在 General 更新与文件关联组内，采用原生次要按钮样式。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle"),
+    c("ST-ASSOCIATE-DIALOG", "文件关联失败时使用原生主题感知弹窗提示。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("UT-ASSOCIATE-CENTER", "文件关联组的标签和原生开关按同一行左右对齐。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDefaultViewerSwitchLayout"),
     c("UT-ASSOCIATE-DIALOG-THEME", "Light/Dark 原生弹窗适配器可实际应用。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNativeDialogsFollowSelectedTheme"),
     c("ST-DISPLAY-MERGED", "设置页只保留 Display、Miscellaneous、Shortcuts、Mouse 四个分类。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-DISPLAY-MERGED", "实际设置原生工具栏首项为 Display 且不再有 Window/Image。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence"),
@@ -340,7 +340,7 @@ UNIT_METHOD_MARKERS = {
     "UT-IMAGE-DEFAULTS": "FeatureTests::testPreferencesDefaultsAndRemovedControls",
     "UT-UPDATE-FREQUENCY": "FeatureTests::testUpdateCheckFrequencyPolicy",
     "UT-ASSOCIATE-DRYRUN": "FeatureTests::testFileAssociationStatusFromSystem",
-    "UT-ASSOCIATE-CENTER": "WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle",
+    "UT-ASSOCIATE-CENTER": "WindowBehaviorTests::testSettingsDefaultViewerSwitchLayout",
     "UT-ASSOCIATE-DIALOG-THEME": "WindowBehaviorTests::testNativeDialogsFollowSelectedTheme",
     "UT-DISPLAY-MERGED": "WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence",
     "UT-SETTINGS-CENTER": "WindowBehaviorTests::testOptionsDialogCentersOnMainWindow",
@@ -505,8 +505,19 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
             "setValue(QStringLiteral(\"options/titlebarhidden\"), shouldHide)",
         )
     )
-    association_center_ok = ('name="fileAssociations"' in options_ui
-                             and 'associateFormatsButton->setAutoDefault(false)' in options_cpp)
+    association_section = root.find(".//widget[@name='fileAssociations']") if ui_parse else None
+    association_widgets = {} if association_section is None else {
+        widget.attrib["name"]: widget.attrib["class"]
+        for widget in association_section.iter("widget")
+    }
+    association_layout_ok = association_widgets == {
+        "fileAssociations": "QWidget",
+        "fileAssociationsHeading": "QLabel",
+        "fileAssociationsSurface": "QVSettingsGroup",
+        "defaultImageViewerLabel": "QLabel",
+        "defaultImageViewerSwitch": "QVFileAssociationSwitch",
+    }
+    switch_connection = "connect(ui->defaultImageViewerSwitch, &QAbstractButton::clicked" in options_cpp
     nav_ok = all(
         marker in cocoa
         for marker in (
@@ -584,10 +595,10 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
     result["ST-MISC-UPDATE-OLD"] = check("updateCheckbox" not in options_ui and '"updatenotifications", {' not in settings and "getBoolean(\"updatenotifications\")" not in update_checker, {"widget_absent": "updateCheckbox" not in options_ui, "settings_library_absent": '"updatenotifications", {' not in settings, "runtime_read_absent": "getBoolean(\"updatenotifications\")" not in update_checker})
     frequency_ok = all(marker in options_ui + options_cpp for marker in ("updateFrequencyComboBox", "updatecheckfrequency", "Never", "Daily", "Weekly", "Monthly")) and defaults["weekly"]
     result["ST-UPDATE-FREQUENCY-UI"] = check(frequency_ok, {"frequency_contract": frequency_ok, "default_weekly": defaults["weekly"]})
-    result["ST-ASSOCIATE-BUTTON"] = check("associateFormatsButton" in options_ui and "associateSupportedFormats" in options_cpp and "clicked" in options_cpp, {"button": "associateFormatsButton" in options_ui, "slot": "associateSupportedFormats" in options_cpp, "connection": "clicked" in options_cpp})
-    result["ST-ASSOCIATE-CENTER"] = check(association_center_ok, {"center_layout": association_center_ok})
+    result["ST-ASSOCIATE-BUTTON"] = check(association_layout_ok and switch_connection, {"switch": association_layout_ok, "connection": switch_connection})
+    result["ST-ASSOCIATE-CENTER"] = check(association_layout_ok, {"single_row": association_layout_ok})
     result["ST-ASSOCIATE-LAUNCHSERVICES"] = check(association_ok, {"association_contract": association_ok})
-    result["ST-ASSOCIATE-DIALOG"] = check(popup_ok, {"native_message": "NativeDialogs::showMessage" in options_cpp, "theme_adapter": "NativeDialogs::applyTheme" in native_dialogs})
+    result["ST-ASSOCIATE-DIALOG"] = check(popup_ok, {"native_message": "NativeDialogs::showMessage" in options_cpp, "theme_adapter": "applyTheme(" in native_dialogs})
     toolbar_items = re.findall(r'Fovelle\.settings\.(display|miscellaneous|shortcuts|mouse)', cocoa)
     formats_ok = category_ok and display_ok and "formatsTable" not in options_ui + options_cpp + options_header and "puzzlepiece.extension" not in cocoa and len(set(toolbar_items)) == 4
     result["ST-DISPLAY-MERGED"] = check(display_ok and category_ok, {"display_contract": display_ok, "categories": category_ok})

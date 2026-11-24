@@ -584,7 +584,7 @@
             <widget name="fileAssociationsSurface" class="QVSettingsGroup">
              <layout name="fileAssociationsForm" columnstretch="1,0" class="QGridLayout">
               <item row="0" column="0">
-               <widget class="QLabel" name="associateFormatsButtonLabel">
+               <widget class="QLabel" name="defaultImageViewerLabel">
                 <property name="text">
                  <string>Default Image Viewer</string>
                 </property>
@@ -594,46 +594,7 @@
                </widget>
               </item>
               <item row="0" column="1" alignment="Qt::AlignRight|Qt::AlignVCenter">
-               <widget name="associationActions" class="QWidget">
-                <layout name="associationActionsLayout" class="QHBoxLayout">
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <item>
-                  <widget class="QPushButton" name="associateFormatsButton">
-                   <property name="text">
-                    <string>Associate All</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget name="associationDefaultIndicator" class="QLabel"/>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item row="1" column="0" colspan="2">
-               <widget name="associationStatus" class="QLabel">
-                <property name="wordWrap">
-                 <bool>true</bool>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="0" colspan="2">
-               <widget name="associationFeedback" class="QLabel">
-                <property name="wordWrap">
-                 <bool>true</bool>
-                </property>
-               </widget>
+               <widget class="QVFileAssociationSwitch" name="defaultImageViewerSwitch"/>
               </item>
               <property name="leftMargin">
                <number>13</number>
@@ -654,16 +615,6 @@
                <number>0</number>
               </property>
              </layout>
-            </widget>
-           </item>
-           <item>
-            <widget name="associationScope" class="QLabel">
-             <property name="text">
-              <string>Applies to all supported image formats.</string>
-             </property>
-             <property name="wordWrap">
-              <bool>true</bool>
-             </property>
             </widget>
            </item>
           </layout>
@@ -1158,6 +1109,11 @@
   <customwidget>
    <class>QVSettingsSwitch</class>
    <extends>QCheckBox</extends>
+   <header>qvsettingswidgets.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QVFileAssociationSwitch</class>
+   <extends>QVSettingsSwitch</extends>
    <header>qvsettingswidgets.h</header>
   </customwidget>
   <customwidget>

@@ -623,7 +623,8 @@ private slots:
     void testNativeFullScreenRoundTrip();
     void testSmoothScalingDefaultIsBilinear();
     void testSettingsSpacingUsesNativeStyle();
-    void testSettingsAssociateButtonUsesNativeStyle();
+    void testSettingsDefaultViewerSwitchLayout();
+    void testSettingsDefaultViewerSwitchActivation();
     void testSettingsEveryTabFitsEveryLanguage();
     void testSettingsNativeAppearance();
     void testSettingsControlsKeepBindingsAndKeyboard();
@@ -5238,9 +5239,9 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
     QCOMPARE(frequency->itemText(2), QStringLiteral("Weekly"));
     QCOMPARE(frequency->itemText(3), QStringLiteral("Monthly"));
     QCOMPARE(frequency->currentData().toInt(), static_cast<int>(Qv::UpdateCheckFrequency::Weekly));
-    auto *associateButton = dialog.findChild<QPushButton *>("associateFormatsButton");
-    QVERIFY(associateButton);
-    QVERIFY(dialog.findChild<QWidget *>("fileAssociations")->isAncestorOf(associateButton));
+    auto *viewerSwitch = dialog.findChild<QCheckBox *>("defaultImageViewerSwitch");
+    QVERIFY(viewerSwitch);
+    QVERIFY(dialog.findChild<QWidget *>("fileAssociations")->isAncestorOf(viewerSwitch));
 }
 
 // TC-SETTINGS-GROUPS-DEFAULTS
@@ -5279,7 +5280,7 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
         { "slideshow", { "slideshowDirectionComboBox", "slideshowTimerSpinBox" } },
         { "fileManagement", { "afterDeletionComboBox", "askDeleteCheckbox" } },
         { "softwareUpdates", { "updateFrequencyComboBox" } },
-        { "fileAssociations", { "associateFormatsButton", "associationStatus" } },
+        { "fileAssociations", { "defaultImageViewerSwitch" } },
     };
     auto *layout = generalContent->layout();
     QCOMPARE(layout->count(), expectedGroups.size());
@@ -13170,16 +13171,42 @@ void WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()
     }
 }
 
-void WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()
+void WindowBehaviorTests::testSettingsDefaultViewerSwitchLayout()
 {
     QVOptionsDialog dialog;
-    auto *button = dialog.findChild<QPushButton *>("associateFormatsButton");
-    QVERIFY(button);
-    QVERIFY(dialog.findChild<QWidget *>("fileAssociations")->isAncestorOf(button));
-    QVERIFY(button->styleSheet().isEmpty());
-    QVERIFY(!button->isFlat());
-    QVERIFY(!button->autoDefault());
-    QVERIFY(!button->isDefault());
+    auto *section = dialog.findChild<QWidget *>("fileAssociations");
+    QVERIFY(section);
+    const auto labels = section->findChildren<QLabel *>();
+    QCOMPARE(labels.size(), 2);
+    auto *form = section->findChild<QGridLayout *>("fileAssociationsForm");
+    QVERIFY(form);
+    QCOMPARE(form->rowCount(), 1);
+    QCOMPARE(form->count(), 2);
+    auto *label = qobject_cast<QLabel *>(form->itemAtPosition(0, 0)->widget());
+    auto *viewer = dynamic_cast<QVSettingsSwitch *>(form->itemAtPosition(0, 1)->widget());
+    QVERIFY(label && viewer);
+    QCOMPARE(label->text(), QStringLiteral("Default Image Viewer"));
+    QCOMPARE(label->buddy(), viewer);
+    QCOMPARE(viewer->accessibleName(), label->text());
+    QCOMPARE(form->itemAtPosition(0, 1)->alignment(), Qt::AlignRight | Qt::AlignVCenter);
+    QVERIFY(section->findChildren<QPushButton *>().isEmpty());
+}
+
+void WindowBehaviorTests::testSettingsDefaultViewerSwitchActivation()
+{
+    QVFileAssociationSwitch viewer;
+    QSignalSpy clicked(&viewer, &QAbstractButton::clicked);
+    QSignalSpy toggled(&viewer, &QAbstractButton::toggled);
+    QTest::mouseClick(&viewer, Qt::LeftButton, Qt::NoModifier, viewer.rect().center());
+    QTest::keyClick(&viewer, Qt::Key_Space);
+    QCOMPARE(clicked.size(), 2);
+    QVERIFY(!viewer.isChecked());
+    QCOMPARE(toggled.size(), 0);
+
+    viewer.setChecked(true);
+    QVERIFY(viewer.isChecked());
+    QCOMPARE(clicked.size(), 2);
+    QCOMPARE(toggled.size(), 1);
 }
 
 // TC-SETTINGS-ALL-LANGUAGES-TABS
@@ -13434,9 +13461,8 @@ void WindowBehaviorTests::testSettingsControlsKeepBindingsAndKeyboard()
     auto *toggle = dialog.findChild<QCheckBox *>("checkerboardBackgroundCheckbox");
     auto *spin = dialog.findChild<QDoubleSpinBox *>("slideshowTimerSpinBox");
     auto *unit = dialog.findChild<QLabel *>("slideshowIntervalUnit");
-    auto *action = dialog.findChild<QPushButton *>("associateFormatsButton");
-    auto *status = dialog.findChild<QLabel *>("associationStatus");
-    QVERIFY(tabs && toggle && spin && unit && action && status);
+    auto *viewer = dialog.findChild<QCheckBox *>("defaultImageViewerSwitch");
+    QVERIFY(tabs && toggle && spin && unit && viewer);
     QVERIFY(dynamic_cast<QVSettingsSwitch *>(toggle));
     QCOMPARE(spin->minimum(), 0.1);
     QCOMPARE(spin->maximum(), 999.9);
@@ -13448,7 +13474,14 @@ void WindowBehaviorTests::testSettingsControlsKeepBindingsAndKeyboard()
     dialog.show();
     dialog.activateWindow();
     QTRY_VERIFY(dialog.isActiveWindow());
-    QVERIFY(!status->text().isEmpty());
+    const auto extensions = qvApp->getAllFileExtensionList().values();
+    const auto isDefaultViewer = [&extensions] {
+        using State = QVCocoaFunctions::FileAssociationState;
+        return QVCocoaFunctions::readFileAssociations(extensions).state() == State::All;
+    };
+    const bool initiallyDefault = isDefaultViewer();
+    QCOMPARE(viewer->isChecked(), initiallyDefault);
+    QCOMPARE(viewer->isEnabled(), !initiallyDefault);
 
     toggle->setFocus();
     QTest::keyClick(toggle, Qt::Key_Space);
@@ -13469,10 +13502,17 @@ void WindowBehaviorTests::testSettingsControlsKeepBindingsAndKeyboard()
     constexpr auto progress = "fovelleFileAssociationInProgress";
     const QVariant previous = qApp->property(progress);
     const auto restore = qScopeGuard([previous] { qApp->setProperty(progress, previous); });
+    QSignalSpy clicked(viewer, &QAbstractButton::clicked);
     qApp->setProperty(progress, true);
-    QVERIFY(!action->isEnabled());
-    QCOMPARE(status->text(), QStringLiteral("Updating file associations…"));
+    QVERIFY(!viewer->isEnabled());
+    QCOMPARE(viewer->isChecked(), initiallyDefault);
+    viewer->click();
+    QCOMPARE(clicked.size(), 0);
     qApp->setProperty(progress, false);
+    const bool currentlyDefault = isDefaultViewer();
+    QCOMPARE(viewer->isChecked(), currentlyDefault);
+    QCOMPARE(viewer->isEnabled(), !currentlyDefault);
+    QCOMPARE(clicked.size(), 0);
 
     QTest::keyClick(&dialog, Qt::Key_W, Qt::ControlModifier);
     QTRY_VERIFY(!dialog.isVisible());

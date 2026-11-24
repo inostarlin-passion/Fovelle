@@ -1581,52 +1581,8 @@ Unable to associate: %1.</source>
         <translation>搜索快捷键</translation>
     </message>
     <message>
-        <source>Applies to all supported image formats.</source>
-        <translation>适用于所有受支持的图像格式。</translation>
-    </message>
-    <message>
-        <source>Not set as default</source>
-        <translation>未设为默认查看器</translation>
-    </message>
-    <message>
-        <source>Default for some formats</source>
-        <translation>部分格式已设为默认</translation>
-    </message>
-    <message>
-        <source>Default for all supported formats</source>
-        <translation>所有支持的格式均已设为默认</translation>
-    </message>
-    <message>
-        <source>Default status unavailable</source>
-        <translation>无法确定默认查看器状态</translation>
-    </message>
-    <message>
-        <source>Updating file associations…</source>
-        <translation>正在更新文件关联…</translation>
-    </message>
-    <message>
-        <source>Set as Default</source>
-        <translation>设为默认</translation>
-    </message>
-    <message>
-        <source>Associate All</source>
-        <translation>关联全部</translation>
-    </message>
-    <message>
-        <source>✓ Default</source>
-        <translation>✓ 默认</translation>
-    </message>
-    <message>
-        <source>The system request was cancelled. Earlier changes may still apply.</source>
-        <translation>系统请求已取消，之前的变更可能仍然有效。</translation>
-    </message>
-    <message>
         <source>Some formats could not be updated. %1</source>
         <translation>部分格式未能更新。%1</translation>
-    </message>
-    <message>
-        <source>The system has not confirmed the change for every format.</source>
-        <translation>系统尚未确认所有格式的变更。</translation>
     </message>
 </context>
 <context>

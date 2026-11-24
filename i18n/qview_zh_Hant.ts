@@ -1751,52 +1751,8 @@ Unable to associate: %1.</source>
         <translation>搜尋快速鍵</translation>
     </message>
     <message>
-        <source>Applies to all supported image formats.</source>
-        <translation>適用於所有支援的影像格式。</translation>
-    </message>
-    <message>
-        <source>Not set as default</source>
-        <translation>未設為預設檢視器</translation>
-    </message>
-    <message>
-        <source>Default for some formats</source>
-        <translation>部分格式已設為預設</translation>
-    </message>
-    <message>
-        <source>Default for all supported formats</source>
-        <translation>所有支援的格式皆已設為預設</translation>
-    </message>
-    <message>
-        <source>Default status unavailable</source>
-        <translation>無法確認預設檢視器狀態</translation>
-    </message>
-    <message>
-        <source>Updating file associations…</source>
-        <translation>正在更新檔案關聯…</translation>
-    </message>
-    <message>
-        <source>Set as Default</source>
-        <translation>設為預設</translation>
-    </message>
-    <message>
-        <source>Associate All</source>
-        <translation>關聯全部</translation>
-    </message>
-    <message>
-        <source>✓ Default</source>
-        <translation>✓ 預設</translation>
-    </message>
-    <message>
-        <source>The system request was cancelled. Earlier changes may still apply.</source>
-        <translation>系統要求已取消，先前的變更可能仍然有效。</translation>
-    </message>
-    <message>
         <source>Some formats could not be updated. %1</source>
         <translation>部分格式無法更新。%1</translation>
-    </message>
-    <message>
-        <source>The system has not confirmed the change for every format.</source>
-        <translation>系統尚未確認所有格式的變更。</translation>
     </message>
 </context>
 <context>

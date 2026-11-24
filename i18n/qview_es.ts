@@ -1566,52 +1566,8 @@ No se pudo asociar: %1.</translation>
         <translation>Buscar atajos</translation>
     </message>
     <message>
-        <source>Applies to all supported image formats.</source>
-        <translation>Se aplica a todos los formatos de imagen compatibles.</translation>
-    </message>
-    <message>
-        <source>Not set as default</source>
-        <translation>No es el visor predeterminado</translation>
-    </message>
-    <message>
-        <source>Default for some formats</source>
-        <translation>Predeterminado para algunos formatos</translation>
-    </message>
-    <message>
-        <source>Default for all supported formats</source>
-        <translation>Predeterminado para todos los formatos compatibles</translation>
-    </message>
-    <message>
-        <source>Default status unavailable</source>
-        <translation>Estado del visor predeterminado no disponible</translation>
-    </message>
-    <message>
-        <source>Updating file associations…</source>
-        <translation>Actualizando asociaciones de archivos…</translation>
-    </message>
-    <message>
-        <source>Set as Default</source>
-        <translation>Establecer como predeterminado</translation>
-    </message>
-    <message>
-        <source>Associate All</source>
-        <translation>Asociar todos</translation>
-    </message>
-    <message>
-        <source>✓ Default</source>
-        <translation>✓ Predeterminado</translation>
-    </message>
-    <message>
-        <source>The system request was cancelled. Earlier changes may still apply.</source>
-        <translation>Se canceló la solicitud del sistema. Es posible que se hayan aplicado cambios anteriores.</translation>
-    </message>
-    <message>
         <source>Some formats could not be updated. %1</source>
         <translation>No se pudieron actualizar algunos formatos. %1</translation>
-    </message>
-    <message>
-        <source>The system has not confirmed the change for every format.</source>
-        <translation>El sistema aún no ha confirmado el cambio para todos los formatos.</translation>
     </message>
 </context>
 <context>

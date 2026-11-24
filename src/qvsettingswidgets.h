@@ -41,6 +41,16 @@ protected:
     void paintEvent(QPaintEvent *event) override;
 };
 
+class QVFileAssociationSwitch : public QVSettingsSwitch
+{
+public:
+    using QVSettingsSwitch::QVSettingsSwitch;
+
+protected:
+    // Activation requests an association. Only a system read changes the checked state.
+    void nextCheckState() override { }
+};
+
 class QVSettingsNumber : public QDoubleSpinBox
 {
 public:

@@ -256,15 +256,9 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
         configureForms(scroll->widget());
     }
 
-    ui->associateFormatsButton->setAutoDefault(false);
-    ui->associateFormatsButton->setAttribute(Qt::WA_LayoutUsesWidgetRect);
-    ui->associationDefaultIndicator->hide();
-    ui->associationFeedback->hide();
-    ui->associationFeedback->setTextFormat(Qt::PlainText);
     ui->slideshowTimerSpinBox->setAttribute(Qt::WA_MacSmallSize);
     ui->slideshowTimerSpinBox->setFrame(false);
     ui->slideshowTimerSpinBox->setMinimumWidth(76);
-    ui->associateFormatsButton->setAttribute(Qt::WA_MacSmallSize);
     ui->editShortcutButton->setAutoDefault(false);
     ui->editShortcutButton->setEnabled(false);
     ui->editShortcutButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -349,7 +343,7 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
             [this, table] { editShortcut(table->currentRow()); });
     connect(ui->langComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &QVOptionsDialog::languageComboBoxCurrentIndexChanged);
-    connect(ui->associateFormatsButton, &QPushButton::clicked, this,
+    connect(ui->defaultImageViewerSwitch, &QAbstractButton::clicked, this,
             &QVOptionsDialog::associateSupportedFormats);
 
     qApp->installEventFilter(this);
@@ -417,8 +411,7 @@ void QVOptionsDialog::updateNaturalPageSizes()
     const QColor secondaryColor = settingsTint(palette(), contrast ? 0.95 : 0.68);
     for (auto *label : ui->stackedWidget->findChildren<QLabel *>()) {
         if (!label->objectName().endsWith(QStringLiteral("Heading"))
-            && label != ui->shortcutEditHint && label != ui->associationScope
-            && label != ui->associationStatus && label != ui->associationFeedback)
+            && label != ui->shortcutEditHint)
             continue;
         QFont font = this->font();
         font.setPointSizeF(qMax(11.0, font.pointSizeF() - 2.0));
@@ -909,72 +902,30 @@ void QVOptionsDialog::refreshFileAssociations()
 {
     using State = QVCocoaFunctions::FileAssociationState;
     const bool busy = QVCocoaFunctions::isChangingFileAssociations();
-    State state = State::Unknown;
+    auto *viewer = ui->defaultImageViewerSwitch;
     if (!busy) {
         const auto extensions = Qv::setToSortedList(qvApp->getAllFileExtensionList());
-        state = QVCocoaFunctions::readFileAssociations(extensions).state();
+        viewer->setChecked(QVCocoaFunctions::readFileAssociations(extensions).state()
+                           == State::All);
     }
-
-    QString status;
-    switch (state) {
-    case State::None:
-        status = tr("Not set as default");
-        break;
-    case State::Partial:
-        status = tr("Default for some formats");
-        break;
-    case State::All:
-        status = tr("Default for all supported formats");
-        break;
-    case State::Unknown:
-        status = tr("Default status unavailable");
-        break;
-    }
-    ui->associationStatus->setText(busy ? tr("Updating file associations…") : status);
-    ui->associateFormatsButton->setText(state == State::None ? tr("Set as Default")
-                                                             : tr("Associate All"));
-    ui->associateFormatsButton->setFixedSize(ui->associateFormatsButton->sizeHint());
-    ui->associateFormatsButton->setDisabled(busy);
-    ui->associateFormatsButton->setVisible(state != State::All);
-    ui->associationDefaultIndicator->setText(tr("✓ Default"));
-    ui->associationDefaultIndicator->setVisible(state == State::All);
-    ui->associationActions->layout()->activate();
-    ui->associationActions->updateGeometry();
-    if (pageMetricsReady && isVisible()) {
-        updateNaturalPageSizes();
-        resizeForCategory(ui->categoryTabs->currentIndex());
-    }
+    viewer->setDisabled(busy || viewer->isChecked());
 }
 
 void QVOptionsDialog::associateSupportedFormats()
 {
-    if (QVCocoaFunctions::isChangingFileAssociations())
+    if (!ui->defaultImageViewerSwitch->isEnabled())
         return;
 
-    ui->associationFeedback->hide();
     const QPointer<QVOptionsDialog> dialog(this);
     const auto extensions = Qv::setToSortedList(qvApp->getAllFileExtensionList());
     QVCocoaFunctions::associateAllSupportedFormats(
             extensions, [dialog](QVCocoaFunctions::FileAssociationAttempt result) {
-                if (!dialog)
+                if (!dialog || !dialog->isVisible() || result.failures.isEmpty())
                     return;
-                QString feedback;
-                if (result.cancelled)
-                    feedback = tr(
-                            "The system request was cancelled. Earlier changes may still apply.");
-                if (!result.failures.isEmpty()) {
-                    if (!feedback.isEmpty())
-                        feedback += QLatin1Char('\n');
-                    feedback += tr("Some formats could not be updated. %1")
-                                        .arg(result.failures.join(QLatin1Char('\n')));
-                }
-                dialog->refreshFileAssociations();
-                if (feedback.isEmpty() && dialog->ui->associationDefaultIndicator->isHidden())
-                    feedback = tr("The system has not confirmed the change for every format.");
-                dialog->ui->associationFeedback->setText(feedback);
-                dialog->ui->associationFeedback->setVisible(!feedback.isEmpty());
-                dialog->updateNaturalPageSizes();
-                dialog->resizeForCategory(dialog->ui->categoryTabs->currentIndex());
+                NativeDialogs::showMessage(QMessageBox::Warning, tr("File Associations"),
+                                           tr("Some formats could not be updated. %1")
+                                                   .arg(result.failures.join(QLatin1Char('\n'))),
+                                           QMessageBox::Ok, dialog);
             });
 }
 

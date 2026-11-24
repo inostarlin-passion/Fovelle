@@ -1476,55 +1476,11 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Applies to all supported image formats.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Not set as default</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Default for some formats</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Default for all supported formats</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Default status unavailable</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Updating file associations…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Set as Default</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Associate All</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>✓ Default</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>The system request was cancelled. Earlier changes may still apply.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Some formats could not be updated. %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>File Associations</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>The system has not confirmed the change for every format.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

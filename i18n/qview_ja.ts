@@ -1566,52 +1566,8 @@ Unable to associate: %1.</source>
         <translation>ショートカットを検索</translation>
     </message>
     <message>
-        <source>Applies to all supported image formats.</source>
-        <translation>対応するすべての画像形式に適用されます。</translation>
-    </message>
-    <message>
-        <source>Not set as default</source>
-        <translation>デフォルトに設定されていません</translation>
-    </message>
-    <message>
-        <source>Default for some formats</source>
-        <translation>一部の形式でデフォルト</translation>
-    </message>
-    <message>
-        <source>Default for all supported formats</source>
-        <translation>対応するすべての形式でデフォルト</translation>
-    </message>
-    <message>
-        <source>Default status unavailable</source>
-        <translation>デフォルトの状態を取得できません</translation>
-    </message>
-    <message>
-        <source>Updating file associations…</source>
-        <translation>ファイルの関連付けを更新中…</translation>
-    </message>
-    <message>
-        <source>Set as Default</source>
-        <translation>デフォルトに設定</translation>
-    </message>
-    <message>
-        <source>Associate All</source>
-        <translation>すべて関連付ける</translation>
-    </message>
-    <message>
-        <source>✓ Default</source>
-        <translation>✓ デフォルト</translation>
-    </message>
-    <message>
-        <source>The system request was cancelled. Earlier changes may still apply.</source>
-        <translation>システムの要求はキャンセルされました。それまでの変更は適用されている場合があります。</translation>
-    </message>
-    <message>
         <source>Some formats could not be updated. %1</source>
         <translation>一部の形式を更新できませんでした。%1</translation>
-    </message>
-    <message>
-        <source>The system has not confirmed the change for every format.</source>
-        <translation>一部の形式では、システムによる変更の確認ができていません。</translation>
     </message>
 </context>
 <context>

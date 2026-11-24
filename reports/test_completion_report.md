@@ -1,3 +1,18 @@
+# 默认图像查看器开关验收结果
+
+2026-11-25 在 macOS 27.0.1、Qt 6.12.0 的 ARM64 Release 构建验证。默认 CTest **13/13 通过**，耗时 98.34 秒。格式和改动相关静态检查通过。 [构建日志](../build-thumbnail-release/test-results/settings-viewer-switch/build.log) · [静态日志](../build-thumbnail-release/test-results/settings-viewer-switch/static.log) · [CTest 日志](../build-thumbnail-release/test-results/settings-viewer-switch/ctest.log)
+
+| 验收项 | 结果 | 核验 |
+| --- | --- | --- |
+| AV01 | 通过 | 检查了表单和无障碍名称。浅色、深色截图均确认文件关联组只有标题和一行标签与开关。 |
+| AV02 | 通过 | 激活路径分别接受鼠标和空格键，选中状态只随确认值更新。 |
+| AV03 | 通过 | 使用系统只读结果交叉核对显示状态。进行中禁止重复点击，并在结束时重新核对。 |
+| AV04 | 通过已执行用例 | 五种语言布局、三页设置、文件关联状态分类及替代请求的错误和取消行为通过。 |
+
+更换已关联格式的默认查看器由 macOS 管理。测试未改写系统文件关联，真实系统授权与 macOS 15 实机显示尚未核验。 [浅色截图](../build-thumbnail-release/test-results/settings-viewer-switch/screenshots/general-light.png) · [深色截图](../build-thumbnail-release/test-results/settings-viewer-switch/screenshots/general-dark.png)
+
+---
+
 # 按方案优化 macOS 设置窗口的完成报告
 
 2026-11-25 在 Apple M3 Pro、macOS 27.0.1、Qt 6.12.0 和 Cocoa 的 Release 构建中验证。最终默认 CTest **13/13 通过**，耗时 95.52 秒。 [技术设计](technical_design_document.md) · [验收规范](test_case_specification.md) · [最终回归日志](../build-thumbnail-release/test-results/settings-form/verified-ctest.log)
